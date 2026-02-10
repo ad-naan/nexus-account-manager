@@ -34,6 +34,11 @@ pub fn run() {
             }
         }))
         .setup(|app| {
+            // Initialize logger first
+            if let Err(e) = utils::logger::init_logger() {
+                eprintln!("Failed to initialize logger: {}", e);
+            }
+            
             app.manage(core::StorageConfig {
                 custom_path: std::sync::Mutex::new(None),
             });
@@ -142,6 +147,7 @@ pub fn run() {
             delete_account,
             export_accounts,
             import_accounts,
+            get_log_file_path,
             core::storage::set_storage_path,
             core::storage::get_current_storage_path,
             core::storage::select_storage_directory,
@@ -171,6 +177,9 @@ pub fn run() {
             kiro::kiro_verify_credentials,
             kiro::kiro_social_login,
             kiro::switch_kiro_account,
+            // Claude 命令
+            claude::switch_claude_account,
+            claude::get_claude_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

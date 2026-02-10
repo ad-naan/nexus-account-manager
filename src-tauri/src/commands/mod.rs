@@ -5,6 +5,7 @@ pub mod import;
 pub mod machine;
 pub mod antigravity;
 pub mod kiro;
+pub mod claude;
 
 pub struct AppState {
     pub storage: Mutex<Storage>,
@@ -79,4 +80,14 @@ pub fn import_accounts(
     storage.save(&app)?;
     
     Ok(accounts)
+}
+
+/// Get log file path
+#[tauri::command]
+pub fn get_log_file_path() -> Result<String, String> {
+    use crate::utils::logger::get_log_file_path;
+    
+    get_log_file_path()
+        .map(|p| p.to_string_lossy().to_string())
+        .ok_or_else(|| "Log file not initialized".to_string())
 }

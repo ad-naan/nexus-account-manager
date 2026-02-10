@@ -8,8 +8,7 @@ import { QuotaItem } from '@/components/accounts/QuotaItem'
 import { cn } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
 import { usePlatformStore } from '@/stores/usePlatformStore'
-import type { AntigravityAccount, KiroAccount, Account } from '@/types/account'
-import type { ClaudeAccount, CodexAccount, GeminiAccount } from '@/types/account'
+import type { AntigravityAccount, KiroAccount, ClaudeAccount, CodexAccount, GeminiAccount, Account } from '@/types/account'
 import {
     RefreshCw,
     Trash2,
@@ -21,7 +20,8 @@ import {
     Ban,
     Gem,
     Diamond,
-    Circle
+    Circle,
+    Edit
 } from 'lucide-react'
 
 // 订阅类型颜色
@@ -43,9 +43,10 @@ const getSubscriptionIcon = (tier?: string) => {
 interface AccountCardProps {
     account: Account
     onRefresh?: () => void
-    onSwitch?: () => void
-    onDelete?: () => void
+    onSwitch?: (account:Account) => void
+    onDelete?: (account:Account) => void
     onExport?: () => void
+    onEdit?: (account:Account) => void
 }
 
 export const AccountCard = memo(function AccountCard({
@@ -54,6 +55,7 @@ export const AccountCard = memo(function AccountCard({
     onSwitch,
     onDelete,
     onExport,
+    onEdit,
 }: AccountCardProps) {
     const { t } = useTranslation()
     const [copied, setCopied] = useState(false)
@@ -103,7 +105,7 @@ export const AccountCard = memo(function AccountCard({
         // 更新当前账号的 isActive 状态
         updateAccount(account.id, { isActive: true })
         setActiveAccount(account)
-        onSwitch?.()
+        onSwitch?.(account)
     }
 
     const handleDoubleClick = () => {
@@ -115,8 +117,12 @@ export const AccountCard = memo(function AccountCard({
     const handleDelete = () => {
         if (confirm(t('common.confirmDelete', { name: account.email }))) {
             deleteAccount(account.id)
-            onDelete?.()
+            onDelete?.(account)
         }
+    }
+
+    const handleEdit = () => {
+        onEdit?.(account)
     }
 
     return (
@@ -242,16 +248,6 @@ export const AccountCard = memo(function AccountCard({
                         </div>
                     )}
 
-                    {/* Claude/Codex/Gemini specific - Base URL */}
-                    {(isClaude || isCodex || isGemini) && (
-                        <div className="space-y-1 pt-1">
-                            <div className="text-xs text-muted-foreground font-light">Base URL</div>
-                            <div className="text-xs font-mono text-foreground/80 truncate bg-muted/30 px-2 py-1 rounded">
-                                {claude?.baseUrl || codex?.baseUrl || gemini?.baseUrl}
-                            </div>
-                        </div>
-                    )}
-
                     {/* Actions - Hover Reveal */}
                     <div className="flex items-center justify-between pt-3 border-t border-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                         <div className="flex items-center gap-0.5">
@@ -303,6 +299,17 @@ export const AccountCard = memo(function AccountCard({
                         </div>
 
                         <div className="flex items-center gap-0.5">
+                            {/* Edit */}
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 hover:bg-white/10 hover:text-blue-400"
+                                onClick={handleEdit}
+                                title={t('common.edit')}
+                            >
+                                <Edit className="h-3.5 w-3.5" />
+                            </Button>
+
                             {/* Details */}
                             <Button
                                 size="icon"

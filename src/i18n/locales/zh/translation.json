@@ -36,7 +36,12 @@
             "name": "Claude",
             "description": "管理您的 Claude API 账号",
             "editAccount": "编辑 Claude 账号",
-            "addAccount": "添加 Claude 账号"
+            "addAccount": "添加 Claude 账号",
+            "switchSuccess": "成功切换到 Claude 账号",
+            "errors": {
+                "noApiKey": "账号配置中未找到 API Key",
+                "switchFailed": "切换账号失败"
+            }
         },
         "codex": {
             "name": "OpenAI Codex",
@@ -55,6 +60,7 @@
         "export": "导出",
         "details": "详情",
         "delete": "删除",
+        "edit": "编辑",
         "copied": "已复制!",
         "clickToCopy": "点击复制",
         "confirmDelete": "确定要删除 {{name}} 吗？",
@@ -131,9 +137,10 @@
         "created": "创建时间",
         "usage": "使用量",
         "subscription": "订阅",
-        "expires": "到期时间"
+        "expires": "到期时间",
+        "quotaModels": "配额模型"
     },
-    "settings": {
+    "edit": {
         "title": "设置",
         "appearance": "外观",
         "theme": "主题",

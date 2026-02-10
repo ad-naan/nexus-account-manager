@@ -2,12 +2,13 @@
  * Codex 平台 - JSON 导入方式
  * 
  * 支持从 JSON 格式导入 OpenAI Codex API 配置
- * 格式: {"env": {"OPENAI_API_KEY": "...", "OPENAI_ORGANIZATION": "...", "OPENAI_BASE_URL": "..."}}
+ * 格式: {"env": {"OPENAI_API_KEY": "...", "OPENAI_BASE_URL": "..."}}
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { Loader2, CheckCircle2, AlertCircle, Upload } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
@@ -30,6 +31,58 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
   const [status, setStatus] = useState<Status>('idle')
   const [message, setMessage] = useState('')
   const [jsonInput, setJsonInput] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [baseUrl, setBaseUrl] = useState('https://api.openai.com/v1')
+  const [jsonValid, setJsonValid] = useState(true)
+
+  // 验证 JSON 格式
+  const validateJson = (text: string): boolean => {
+    if (!text.trim()) {
+      setJsonValid(true)
+      return true
+    }
+
+    try {
+      const parsed = JSON.parse(text)
+      setJsonValid(true)
+      return true
+    } catch {
+      setJsonValid(false)
+      return false
+    }
+  }
+
+  // 从 JSON 同步到输入框
+  useEffect(() => {
+    if (!jsonInput.trim()) return
+
+    try {
+      const config: CodexEnvConfig = JSON.parse(jsonInput)
+      if (config.env) {
+        if (config.env.OPENAI_API_KEY) {
+          setApiKey(config.env.OPENAI_API_KEY)
+        }
+        if (config.env.OPENAI_BASE_URL) {
+          setBaseUrl(config.env.OPENAI_BASE_URL)
+        }
+      }
+    } catch {
+      // JSON 格式错误时不同步
+    }
+  }, [jsonInput])
+
+  // 从输入框同步到 JSON
+  useEffect(() => {
+    if (apiKey || baseUrl !== 'https://api.openai.com/v1') {
+      const config: CodexEnvConfig = {
+        env: {
+          OPENAI_API_KEY: apiKey || undefined,
+          OPENAI_BASE_URL: baseUrl || undefined,
+        }
+      }
+      setJsonInput(JSON.stringify(config, null, 2))
+    }
+  }, [apiKey, baseUrl])
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -39,15 +92,31 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
     reader.onload = (event) => {
       const content = event.target?.result as string
       setJsonInput(content)
+      validateJson(content)
     }
     reader.readAsText(file)
   }
 
+  const handleJsonChange = (value: string) => {
+    setJsonInput(value)
+    validateJson(value)
+  }
+
   const handleSubmit = async () => {
-    const trimmed = jsonInput.trim()
-    if (!trimmed) {
+    // 优先使用输入框的值
+    const finalApiKey = apiKey.trim()
+    const finalBaseUrl = baseUrl.trim()
+
+    if (!finalApiKey) {
       setStatus('error')
-      setMessage(isEn ? 'Please enter JSON configuration' : '请输入 JSON 配置')
+      setMessage(isEn ? 'Please enter OPENAI_API_KEY' : '请输入 OPENAI_API_KEY')
+      return
+    }
+
+    // 如果有 JSON 输入，验证其格式
+    if (jsonInput.trim() && !jsonValid) {
+      setStatus('error')
+      setMessage(isEn ? 'Invalid JSON format' : 'JSON 格式错误')
       return
     }
 
@@ -55,31 +124,29 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
     setMessage(isEn ? 'Processing...' : '正在处理...')
 
     try {
-      // 解析 JSON
-      const config: CodexEnvConfig = JSON.parse(trimmed)
-      
-      if (!config.env) {
-        throw new Error(isEn ? 'Missing "env" field' : '缺少 "env" 字段')
-      }
+      let organizationId: string | undefined
+      const config: CodexEnvConfig = JSON.parse(jsonInput)
 
-      const { OPENAI_API_KEY, OPENAI_ORGANIZATION, OPENAI_BASE_URL } = config.env
-
-      if (!OPENAI_API_KEY) {
-        throw new Error(isEn ? 'Missing OPENAI_API_KEY' : '缺少 OPENAI_API_KEY')
+      // 如果有 JSON 输入，尝试提取额外字段
+      if (jsonInput.trim()) {
+        if (config.env?.OPENAI_ORGANIZATION) {
+          organizationId = config.env.OPENAI_ORGANIZATION
+        }
       }
 
       // 创建账号对象
       const account: any = {
         id: crypto.randomUUID(),
         platform: 'codex',
-        email: extractEmailFromUrl(OPENAI_BASE_URL) || 'codex@openai',
-        name: extractNameFromUrl(OPENAI_BASE_URL) || 'OpenAI Codex',
+        email: extractEmailFromUrl(finalBaseUrl) || 'codex@openai',
+        name: extractNameFromUrl(finalBaseUrl) || 'OpenAI Codex',
         isActive: false,
         lastUsedAt: Date.now(),
         createdAt: Date.now(),
-        apiKey: OPENAI_API_KEY,
-        organizationId: OPENAI_ORGANIZATION,
-        baseUrl: OPENAI_BASE_URL || 'https://api.openai.com/v1',
+        apiKey: finalApiKey,
+        organizationId,
+        baseUrl: finalBaseUrl || 'https://api.openai.com/v1',
+        config: config, // 保存完整配置
       }
 
       onSuccess(account)
@@ -89,7 +156,7 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
 
     } catch (e: any) {
       setStatus('error')
-      setMessage(e.message || (isEn ? 'Invalid JSON format' : 'JSON 格式错误'))
+      setMessage(e.message || (isEn ? 'Failed to add account' : '添加账号失败'))
       onError(e.message)
     }
   }
@@ -117,12 +184,48 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
 
   return (
     <div className="space-y-4">
+      {/* API Key 输入框 */}
+      <div className="space-y-2">
+        <Label htmlFor="codex-api-key">
+          {isEn ? 'API Key' : 'API 密钥'} <span className="text-red-500">*</span>
+        </Label>
+        <Input
+          id="codex-api-key"
+          type="password"
+          placeholder="sk-..."
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          disabled={status === 'processing'}
+          className="font-mono"
+        />
+      </div>
+
+      {/* Base URL 输入框 */}
+      <div className="space-y-2">
+        <Label htmlFor="codex-base-url">
+          {isEn ? 'Base URL' : '基础 URL'}
+        </Label>
+        <Input
+          id="codex-base-url"
+          type="text"
+          placeholder="https://api.openai.com/v1"
+          value={baseUrl}
+          onChange={(e) => setBaseUrl(e.target.value)}
+          disabled={status === 'processing'}
+          className="font-mono"
+        />
+      </div>
+
+      {/* JSON 配置输入框 */}
       <div className="space-y-2">
         <Label>
-          {isEn ? 'JSON Configuration' : 'JSON 配置'}
+          {isEn ? 'JSON Configuration (Optional)' : 'JSON 配置（可选）'}
         </Label>
         <textarea
-          className="w-full h-48 rounded-lg border border-input bg-background px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+          className={cn(
+            "w-full h-32 rounded-lg border bg-background px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none transition-colors",
+            !jsonValid && "border-red-500 focus-visible:ring-red-500"
+          )}
           placeholder={`{
   "env": {
     "OPENAI_API_KEY": "sk-...",
@@ -131,9 +234,15 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
   }
 }`}
           value={jsonInput}
-          onChange={(e) => setJsonInput(e.target.value)}
+          onChange={(e) => handleJsonChange(e.target.value)}
           disabled={status === 'processing'}
         />
+        {!jsonValid && (
+          <p className="text-xs text-red-500 flex items-center gap-1">
+            <AlertCircle className="h-3 w-3" />
+            {isEn ? 'Invalid JSON format' : 'JSON 格式错误'}
+          </p>
+        )}
       </div>
 
       <div className="flex gap-2">
@@ -157,10 +266,10 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
         <Button
           className="flex-1"
           onClick={handleSubmit}
-          disabled={status === 'processing' || !jsonInput.trim()}
+          disabled={status === 'processing' || !apiKey.trim() || !jsonValid}
         >
           {status === 'processing' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isEn ? 'Import' : '导入'}
+          {isEn ? 'Add Account' : '添加账号'}
         </Button>
       </div>
 

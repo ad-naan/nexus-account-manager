@@ -35,8 +35,13 @@
         "claude": {
             "name": "Claude",
             "description": "Manage your Claude API accounts",
-            "editAccount": "编辑 Claude 账号",
-            "addAccount": "添加 Claude 账号"
+            "editAccount": "Edit Claude Account",
+            "addAccount": "Add Claude Account",
+            "switchSuccess": "Successfully switched to Claude account",
+            "errors": {
+                "noApiKey": "API Key not found in account config",
+                "switchFailed": "Failed to switch account"
+            }
         },
         "codex": {
             "name": "OpenAI Codex",
@@ -55,6 +60,7 @@
         "export": "Export",
         "details": "Details",
         "delete": "Delete",
+        "edit": "Edit",
         "copied": "Copied!",
         "clickToCopy": "Click to copy",
         "confirmDelete": "Are you sure you want to delete {{name}}?",
@@ -131,9 +137,10 @@
         "created": "Created",
         "usage": "Usage",
         "subscription": "Subscription",
-        "expires": "Expires"
+        "expires": "Expires",
+        "quotaModels": "Quota Models"
     },
-    "settings": {
+    "edit": {
         "title": "Settings",
         "appearance": "Appearance",
         "theme": "Theme",

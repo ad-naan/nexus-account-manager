@@ -83,25 +83,19 @@ export interface KiroAccount extends BaseAccount {
 // --- Claude Specifics ---
 export interface ClaudeAccount extends BaseAccount {
     platform: 'claude';
-    apiKey: string;
-    authToken?: string;
-    baseUrl: string;
+    config: any;
 }
 
 // --- Codex Specifics ---
 export interface CodexAccount extends BaseAccount {
     platform: 'codex';
-    apiKey: string;
-    organizationId?: string;
-    baseUrl: string;
+    config: any;
 }
 
 // --- Gemini Specifics ---
 export interface GeminiAccount extends BaseAccount {
     platform: 'gemini';
-    apiKey: string;
-    projectId?: string;
-    baseUrl: string;
+    config: any;
 }
 
 // --- Union Type ---
