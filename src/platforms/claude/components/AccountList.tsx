@@ -1,17 +1,19 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { AddAccountDialog } from './AddAccountDialog'
 import { EditAccountDialog } from './EditAccountDialog'
 import { ExportDialog } from '@/components/dialogs/ExportDialog'
 import { AccountCard } from '@/components/accounts/AccountCard'
+import { AccountTable } from '@/components/accounts/AccountTable'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { usePlatformStore } from '@/stores/usePlatformStore'
-import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Download } from 'lucide-react'
+import { Download, LayoutGrid, List } from 'lucide-react'
 import { invoke } from '@tauri-apps/api/core'
 import { toast } from 'sonner'
 import type { Account, ClaudeAccount } from '@/types/account'
+
+type ViewMode = 'grid' | 'list'
 
 export function ClaudeAccountList() {
   const { t } = useTranslation()
@@ -21,6 +23,7 @@ export function ClaudeAccountList() {
   const [isSwitching, setIsSwitching] = useState(false)
   const [editAccount, setEditAccount] = useState<ClaudeAccount | null>(null)
   const [editOpen, setEditOpen] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('grid')
 
   const claudeAccounts = useMemo(
     () => accounts.filter((acc): acc is ClaudeAccount => acc.platform === 'claude'),
@@ -95,15 +98,37 @@ export function ClaudeAccountList() {
         </div>
         <div className="flex items-center gap-3">
           {claudeAccounts.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setExportOpen(true)}
-              className="bg-background/50 backdrop-blur-sm border-white/10 hover:bg-background/80"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {t('common.export')}
-            </Button>
+            <>
+              <div className="flex items-center gap-1 bg-background/50 backdrop-blur-sm border border-white/10 rounded-lg p-1">
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('grid')}
+                  className="h-7 px-2"
+                  title={t('common.gridView', 'Grid View')}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('list')}
+                  className="h-7 px-2"
+                  title={t('common.listView', 'List View')}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setExportOpen(true)}
+                className="bg-background/50 backdrop-blur-sm border-white/10 hover:bg-background/80"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {t('common.export')}
+              </Button>
+            </>
           )}
           <div className="relative z-10">
             <AddAccountDialog />
@@ -123,17 +148,28 @@ export function ClaudeAccountList() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {claudeAccounts.map((account) => (
-            <AccountCard
-              key={account.id}
-              account={account}
-              onExport={() => setExportOpen(true)}
-              onSwitch={(account) => setSwitchAccount(account)}
-              onEdit={(account) => setEdit(account)}
+        <>
+          {viewMode === 'grid' ? (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {claudeAccounts.map((account) => (
+                <AccountCard
+                  key={account.id}
+                  account={account}
+                  onExport={() => setExportOpen(true)}
+                  onSwitch={(account) => setSwitchAccount(account)}
+                  onEdit={(account) => setEdit(account)}
+                />
+              ))}
+            </div>
+          ) : (
+            <AccountTable
+              accounts={claudeAccounts}
+              onSwitch={setSwitchAccount}
+              onEdit={setEdit}
+              isSwitching={isSwitching}
             />
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       <ExportDialog
