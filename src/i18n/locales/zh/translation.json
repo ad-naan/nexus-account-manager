@@ -79,6 +79,10 @@
             "editAccount": "编辑 Claude 账号",
             "addAccount": "添加 Claude 账号",
             "switchSuccess": "成功切换到 Claude 账号",
+            "verify": "验证",
+            "verifying": "验证中...",
+            "verifySuccess": "API Key 有效",
+            "verifyFailed": "API Key 验证失败",
             "errors": {
                 "noApiKey": "账号配置中未找到 API Key",
                 "switchFailed": "切换账号失败"

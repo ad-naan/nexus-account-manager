@@ -6,6 +6,8 @@ pub mod machine;
 pub mod antigravity;
 pub mod kiro;
 pub mod claude;
+pub mod codex;
+pub mod gemini;
 
 pub struct AppState {
     pub storage: Mutex<Storage>,

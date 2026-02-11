@@ -79,6 +79,10 @@
             "editAccount": "Edit Claude Account",
             "addAccount": "Add Claude Account",
             "switchSuccess": "Successfully switched to Claude account",
+            "verify": "Verify",
+            "verifying": "Verifying...",
+            "verifySuccess": "API key is valid",
+            "verifyFailed": "API key verification failed",
             "errors": {
                 "noApiKey": "API Key not found in account config",
                 "switchFailed": "Failed to switch account"

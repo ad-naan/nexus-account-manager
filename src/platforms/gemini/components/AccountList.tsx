@@ -1,5 +1,7 @@
+import { logError } from '@/lib/logger'
 import { useState, useMemo, useDeferredValue } from 'react'
 import { AddAccountDialog } from './AddAccountDialog'
+import { EditAccountDialog } from './EditAccountDialog'
 import { ExportDialog } from '@/components/dialogs/ExportDialog'
 import { GeminiAccountCard } from './GeminiAccountCard'
 import { AccountTable } from '@/components/accounts/AccountTable'
@@ -9,6 +11,9 @@ import { Button } from '@/components/ui/button'
 import { usePlatformStore } from '@/stores/usePlatformStore'
 import { useTranslation } from 'react-i18next'
 import { Download, LayoutGrid, List, Search } from 'lucide-react'
+import { invoke } from '@tauri-apps/api/core'
+import { toast } from 'sonner'
+import type { Account, GeminiAccount } from '@/types/account'
 
 type ViewMode = 'grid' | 'list'
 
@@ -16,6 +21,9 @@ export function GeminiAccountList() {
   const { t } = useTranslation()
   const accounts = usePlatformStore((state) => state.accounts)
   const [exportOpen, setExportOpen] = useState(false)
+  const [isSwitching, setIsSwitching] = useState(false)
+  const [editAccount, setEditAccount] = useState<GeminiAccount | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [searchQuery, setSearchQuery] = useState('')
   
@@ -23,7 +31,7 @@ export function GeminiAccountList() {
   const deferredSearchQuery = useDeferredValue(searchQuery)
 
   const geminiAccounts = useMemo(
-    () => accounts.filter((acc) => acc.platform === 'gemini'),
+    () => accounts.filter((acc): acc is GeminiAccount => acc.platform === 'gemini'),
     [accounts]
   )
 
@@ -37,6 +45,43 @@ export function GeminiAccountList() {
       return email.includes(query) || name.includes(query)
     })
   }, [geminiAccounts, deferredSearchQuery])
+
+  const setSwitchAccount = async (account: Account) => {
+    if (account.platform !== 'gemini') return
+    
+    // 防止重复切换
+    if (isSwitching) return
+    
+    setIsSwitching(true)
+    
+    try {
+      // 调用 Rust 后端切换账户（会自动更新 active 状态和写入配置文件）
+      await invoke('switch_gemini_account', { id: account.id })
+      
+      // 重新加载账户列表以获取最新状态
+      const updatedAccounts = await invoke<Account[]>('get_accounts')
+      usePlatformStore.setState({ accounts: updatedAccounts })
+      
+      toast.success(t('gemini.switchSuccess', 'Gemini account switched successfully'))
+    } catch (error: any) {
+      logError('Failed to switch Gemini account:', error)
+      toast.error(t('gemini.errors.switchFailed', `Failed to switch account: ${error.message || error}`))
+    } finally {
+      setIsSwitching(false)
+    }
+  }
+
+  const setEdit = (account: Account) => {
+    if (account.platform === 'gemini') {
+      setEditAccount(account as GeminiAccount)
+      setEditOpen(true)
+    }
+  }
+
+  const handleEditClose = () => {
+    setEditOpen(false)
+    setEditAccount(null)
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -124,12 +169,19 @@ export function GeminiAccountList() {
                 <GeminiAccountCard
                   key={account.id}
                   account={account}
+                  onSwitch={() => setSwitchAccount(account)}
                   onExport={() => setExportOpen(true)}
+                  onEdit={() => setEdit(account)}
                 />
               ))}
             </div>
           ) : (
-            <AccountTable accounts={filteredAccounts} />
+            <AccountTable
+              accounts={filteredAccounts}
+              onSwitch={setSwitchAccount}
+              onEdit={setEdit}
+              isSwitching={isSwitching}
+            />
           )}
         </>
       )}
@@ -138,6 +190,12 @@ export function GeminiAccountList() {
         open={exportOpen}
         onClose={() => setExportOpen(false)}
         accounts={geminiAccounts}
+      />
+
+      <EditAccountDialog
+        account={editAccount}
+        open={editOpen}
+        onClose={handleEditClose}
       />
     </div>
   )

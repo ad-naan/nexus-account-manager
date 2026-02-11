@@ -12,28 +12,43 @@ import { Input } from '@/components/ui/input'
 import { Loader2, CheckCircle2, AlertCircle, Upload } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { logError } from '@/lib/logger'
 import type { AddMethodProps } from '@/types/platform'
+import type { CodexEnvConfig } from '@/types/account'
 
 type Status = 'idle' | 'processing' | 'success' | 'error'
 
-interface CodexEnvConfig {
-  env: {
-    OPENAI_API_KEY?: string
-    OPENAI_ORGANIZATION?: string
-    OPENAI_BASE_URL?: string
-  }
+interface JsonMethodProps extends AddMethodProps {
+  initialData?: string
+  isEdit?: boolean
 }
 
-export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
+export function JsonMethod({ onSuccess, onError, onClose, initialData, isEdit = false }: JsonMethodProps) {
   const { i18n } = useTranslation()
   const isEn = i18n.language === 'en'
 
   const [status, setStatus] = useState<Status>('idle')
   const [message, setMessage] = useState('')
-  const [jsonInput, setJsonInput] = useState('')
+  const [jsonInput, setJsonInput] = useState(initialData || '')
   const [apiKey, setApiKey] = useState('')
   const [baseUrl, setBaseUrl] = useState('https://api.openai.com/v1')
   const [jsonValid, setJsonValid] = useState(true)
+
+  // 初始化编辑模式数据
+  useEffect(() => {
+    if (initialData && isEdit) {
+      try {
+        const data = JSON.parse(initialData)
+        if (data.config?.env) {
+          setApiKey(data.config.env.OPENAI_API_KEY || '')
+          setBaseUrl(data.config.env.OPENAI_BASE_URL || 'https://api.openai.com/v1')
+          setJsonInput(JSON.stringify(data.config, null, 2))
+        }
+      } catch (e) {
+        logError('Failed to parse initial data:', e)
+      }
+    }
+  }, [initialData, isEdit])
 
   // 验证 JSON 格式
   const validateJson = (text: string): boolean => {
@@ -127,13 +142,6 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
       let organizationId: string | undefined
       const config: CodexEnvConfig = JSON.parse(jsonInput)
 
-      // 如果有 JSON 输入，尝试提取额外字段
-      if (jsonInput.trim()) {
-        if (config.env?.OPENAI_ORGANIZATION) {
-          organizationId = config.env.OPENAI_ORGANIZATION
-        }
-      }
-
       // 创建账号对象
       const account: any = {
         id: crypto.randomUUID(),
@@ -151,7 +159,10 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
 
       onSuccess(account)
       setStatus('success')
-      setMessage(isEn ? 'Account added successfully!' : '账号添加成功！')
+      setMessage(isEdit 
+        ? (isEn ? 'Account updated successfully!' : '账号更新成功！')
+        : (isEn ? 'Account added successfully!' : '账号添加成功！')
+      )
       setTimeout(onClose, 1500)
 
     } catch (e: any) {
@@ -229,7 +240,6 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
           placeholder={`{
   "env": {
     "OPENAI_API_KEY": "sk-...",
-    "OPENAI_ORGANIZATION": "org-...",
     "OPENAI_BASE_URL": "https://api.openai.com/v1"
   }
 }`}
@@ -269,7 +279,10 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
           disabled={status === 'processing' || !apiKey.trim() || !jsonValid}
         >
           {status === 'processing' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isEn ? 'Add Account' : '添加账号'}
+          {isEdit 
+            ? (isEn ? 'Update Account' : '更新账号')
+            : (isEn ? 'Add Account' : '添加账号')
+          }
         </Button>
       </div>
 

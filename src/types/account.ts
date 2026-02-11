@@ -121,21 +121,45 @@ export interface KiroAccount extends BaseAccount {
 }
 
 // --- Claude Specifics ---
+export interface ClaudeEnvConfig {
+  env: {
+    "ANTHROPIC_API_KEY"?: string
+    "ANTHROPIC_AUTH_TOKEN"?: string
+    "ANTHROPIC_BASE_URL"?: string
+  }
+}
+
 export interface ClaudeAccount extends BaseAccount {
     platform: 'claude';
-    config: any;
+    config: ClaudeEnvConfig;
 }
 
 // --- Codex Specifics ---
+export interface CodexEnvConfig {
+  env: {
+    OPENAI_API_KEY?: string
+    OPENAI_BASE_URL?: string
+  }
+}
+
 export interface CodexAccount extends BaseAccount {
     platform: 'codex';
-    config: any;
+    config: CodexEnvConfig;
 }
 
 // --- Gemini Specifics ---
+export interface GeminiEnvConfig {
+  env: {
+    GEMINI_API_KEY?: string
+    GOOGLE_API_KEY?: string
+    GEMINI_MODEL?: string
+    GOOGLE_GEMINI_BASE_URL?: string
+  }
+}
+
 export interface GeminiAccount extends BaseAccount {
     platform: 'gemini';
-    config: any;
+    config: GeminiEnvConfig;
 }
 
 // --- Union Type ---

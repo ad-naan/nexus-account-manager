@@ -4,28 +4,33 @@ import { Badge } from '@/components/ui/badge'
 import { GeminiAccountDetailsDialog } from './GeminiAccountDetailsDialog'
 import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog'
 import { toast } from '@/lib/toast'
+import { Edit } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { usePlatformStore } from '@/stores/usePlatformStore'
 import type { GeminiAccount } from '@/types/account'
 
 interface GeminiAccountCardProps {
   account: GeminiAccount
+  onSwitch?: () => void
   onExport?: () => void
+  onEdit?: () => void
 }
 
 export const GeminiAccountCard = memo(function GeminiAccountCard({
   account,
+  onSwitch,
   onExport,
+  onEdit,
 }: GeminiAccountCardProps) {
   const { t } = useTranslation()
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const deleteAccount = usePlatformStore(state => state.deleteAccount)
-  const setActiveAccount = usePlatformStore(state => state.setActiveAccount)
 
   const handleSwitch = () => {
-    setActiveAccount(account)
-    toast.success(t('accounts.switchSuccess'), account.email)
+    if (onSwitch) {
+      onSwitch()
+    }
   }
 
   const handleDelete = async () => {
@@ -53,6 +58,11 @@ export const GeminiAccountCard = memo(function GeminiAccountCard({
         onExport={onExport}
         onDetails={() => setDetailsOpen(true)}
         onDelete={() => setDeleteConfirmOpen(true)}
+        customActions={onEdit ? [{
+          icon: Edit,
+          label: t('common.edit'),
+          onClick: onEdit
+        }] : []}
       />
 
       <GeminiAccountDetailsDialog

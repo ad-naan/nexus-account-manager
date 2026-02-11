@@ -80,8 +80,6 @@ export function ClaudeAccountList() {
         isActive: true,
         lastUsedAt: Date.now()
       })
-      
-      toast.success(t('claude.switchSuccess', `Switched to ${account.email || account.name || 'Claude account'}`))
     } catch (error: any) {
       logError('Failed to switch Claude account:', error)
       toast.error(t('claude.errors.switchFailed', `Failed to switch account: ${error.message || error}`))
@@ -188,6 +186,7 @@ export function ClaudeAccountList() {
                 <ClaudeAccountCard
                   key={account.id}
                   account={account}
+                  onSwitch={() => setSwitchAccount(account)}
                   onExport={() => setExportOpen(true)}
                   onEdit={() => setEdit(account)}
                 />

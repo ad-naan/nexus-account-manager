@@ -183,6 +183,13 @@ pub fn run() {
             // Claude 命令
             claude::switch_claude_account,
             claude::get_claude_config,
+            claude::verify_claude_api_key,
+            // Codex 命令
+            codex::switch_codex_account,
+            codex::get_codex_config,
+            // Gemini 命令
+            gemini::switch_gemini_account,
+            gemini::get_gemini_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

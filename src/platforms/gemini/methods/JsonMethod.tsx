@@ -2,7 +2,7 @@
  * Gemini 平台 - JSON 导入方式
  * 
  * 支持从 JSON 格式导入 Google Gemini API 配置
- * 格式: {"env": {"GEMINI_API_KEY": "...", "GEMINI_PROJECT_ID": "...", "GEMINI_BASE_URL": "..."}}
+ * 格式: {"env": {"GEMINI_API_KEY": "...", "GEMINI_MODEL": "...", "GOOGLE_GEMINI_BASE_URL": "..."}}
  */
 
 import { useState, useEffect } from 'react'
@@ -12,30 +12,46 @@ import { Input } from '@/components/ui/input'
 import { Loader2, CheckCircle2, AlertCircle, Upload } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { logError } from '@/lib/logger'
 import type { AddMethodProps } from '@/types/platform'
+import type { GeminiEnvConfig } from '@/types/account'
 
 type Status = 'idle' | 'processing' | 'success' | 'error'
 
-interface GeminiEnvConfig {
-  env: {
-    GEMINI_API_KEY?: string
-    GOOGLE_API_KEY?: string
-    GEMINI_PROJECT_ID?: string
-    GEMINI_BASE_URL?: string
-  }
+interface JsonMethodProps extends AddMethodProps {
+  initialData?: string
+  isEdit?: boolean
 }
 
-export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
+export function JsonMethod({ onSuccess, onError, onClose, initialData, isEdit = false }: JsonMethodProps) {
   const { i18n } = useTranslation()
   const isEn = i18n.language === 'en'
 
   const [status, setStatus] = useState<Status>('idle')
   const [message, setMessage] = useState('')
-  const [jsonInput, setJsonInput] = useState('')
+  const [jsonInput, setJsonInput] = useState(initialData || '')
   const [apiKey, setApiKey] = useState('')
-  const [projectId, setProjectId] = useState('')
+  const [model, setModel] = useState('gemini-3-pro-preview')
   const [baseUrl, setBaseUrl] = useState('https://generativelanguage.googleapis.com/v1')
   const [jsonValid, setJsonValid] = useState(true)
+
+  // 初始化编辑模式数据
+  useEffect(() => {
+    if (initialData && isEdit) {
+      try {
+        const data = JSON.parse(initialData)
+        if (data.config?.env) {
+          const key = data.config.env.GEMINI_API_KEY || data.config.env.GOOGLE_API_KEY
+          setApiKey(key || '')
+          setModel(data.config.env.GEMINI_MODEL || 'gemini-3-pro')
+          setBaseUrl(data.config.env.GOOGLE_GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1')
+          setJsonInput(JSON.stringify(data.config, null, 2))
+        }
+      } catch (e) {
+        logError('Failed to parse initial data:', e)
+      }
+    }
+  }, [initialData, isEdit])
 
   // 验证 JSON 格式
   const validateJson = (text: string): boolean => {
@@ -65,11 +81,11 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
         if (key) {
           setApiKey(key)
         }
-        if (config.env.GEMINI_PROJECT_ID) {
-          setProjectId(config.env.GEMINI_PROJECT_ID)
+        if (config.env.GEMINI_MODEL) {
+          setModel(config.env.GEMINI_MODEL)
         }
-        if (config.env.GEMINI_BASE_URL) {
-          setBaseUrl(config.env.GEMINI_BASE_URL)
+        if (config.env.GOOGLE_GEMINI_BASE_URL) {
+          setBaseUrl(config.env.GOOGLE_GEMINI_BASE_URL)
         }
       }
     } catch {
@@ -79,17 +95,17 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
 
   // 从输入框同步到 JSON
   useEffect(() => {
-    if (apiKey || projectId || baseUrl !== 'https://generativelanguage.googleapis.com/v1') {
+    if (apiKey || model !== 'gemini-pro' || baseUrl !== 'https://generativelanguage.googleapis.com/v1') {
       const config: GeminiEnvConfig = {
         env: {
           GEMINI_API_KEY: apiKey || undefined,
-          GEMINI_PROJECT_ID: projectId || undefined,
-          GEMINI_BASE_URL: baseUrl || undefined,
+          GEMINI_MODEL: model || undefined,
+          GOOGLE_GEMINI_BASE_URL: baseUrl || undefined,
         }
       }
       setJsonInput(JSON.stringify(config, null, 2))
     }
-  }, [apiKey, projectId, baseUrl])
+  }, [apiKey, model, baseUrl])
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -112,7 +128,7 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
   const handleSubmit = async () => {
     // 优先使用输入框的值
     const finalApiKey = apiKey.trim()
-    const finalProjectId = projectId.trim()
+    const finalModel = model.trim()
     const finalBaseUrl = baseUrl.trim()
 
     if (!finalApiKey) {
@@ -142,8 +158,8 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
           config = {
             env: {
               GEMINI_API_KEY: finalApiKey,
-              GEMINI_PROJECT_ID: finalProjectId || undefined,
-              GEMINI_BASE_URL: finalBaseUrl || undefined,
+              GEMINI_MODEL: finalModel || undefined,
+              GOOGLE_GEMINI_BASE_URL: finalBaseUrl || undefined,
             }
           }
         }
@@ -152,8 +168,8 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
         config = {
           env: {
             GEMINI_API_KEY: finalApiKey,
-            GEMINI_PROJECT_ID: finalProjectId || undefined,
-            GEMINI_BASE_URL: finalBaseUrl || undefined,
+            GEMINI_MODEL: finalModel || undefined,
+            GOOGLE_GEMINI_BASE_URL: finalBaseUrl || undefined,
           }
         }
       }
@@ -167,15 +183,15 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
         isActive: false,
         lastUsedAt: Date.now(),
         createdAt: Date.now(),
-        apiKey: finalApiKey,
-        projectId: finalProjectId || undefined,
-        baseUrl: finalBaseUrl || 'https://generativelanguage.googleapis.com/v1',
-        config: config, // 保存完整配置
+        config: config,
       }
 
       onSuccess(account)
       setStatus('success')
-      setMessage(isEn ? 'Account added successfully!' : '账号添加成功！')
+      setMessage(isEdit 
+        ? (isEn ? 'Account updated successfully!' : '账号更新成功！')
+        : (isEn ? 'Account added successfully!' : '账号添加成功！')
+      )
       setTimeout(onClose, 1500)
 
     } catch (e: any) {
@@ -224,17 +240,17 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
         />
       </div>
 
-      {/* Project ID 输入框 */}
+      {/* Model 输入框 */}
       <div className="space-y-2">
-        <Label htmlFor="gemini-project-id">
-          {isEn ? 'Project ID' : '项目 ID'}
+        <Label htmlFor="gemini-model">
+          {isEn ? 'Model' : '模型'}
         </Label>
         <Input
-          id="gemini-project-id"
+          id="gemini-model"
           type="text"
-          placeholder="my-project"
-          value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
+          placeholder="gemini-pro"
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
           disabled={status === 'processing'}
           className="font-mono"
         />
@@ -269,8 +285,8 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
           placeholder={`{
   "env": {
     "GEMINI_API_KEY": "AIza...",
-    "GEMINI_PROJECT_ID": "my-project",
-    "GEMINI_BASE_URL": "https://generativelanguage.googleapis.com/v1"
+    "GEMINI_MODEL": "gemini-pro",
+    "GOOGLE_GEMINI_BASE_URL": "https://generativelanguage.googleapis.com/v1"
   }
 }`}
           value={jsonInput}
@@ -309,7 +325,10 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
           disabled={status === 'processing' || !apiKey.trim() || !jsonValid}
         >
           {status === 'processing' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isEn ? 'Add Account' : '添加账号'}
+          {isEdit 
+            ? (isEn ? 'Update Account' : '更新账号')
+            : (isEn ? 'Add Account' : '添加账号')
+          }
         </Button>
       </div>
 
@@ -333,8 +352,8 @@ export function JsonMethod({ onSuccess, onError, onClose }: AddMethodProps) {
         <p className="font-semibold">{isEn ? 'Supported fields:' : '支持的字段：'}</p>
         <ul className="list-disc list-inside space-y-0.5 ml-2">
           <li>GEMINI_API_KEY / GOOGLE_API_KEY {isEn ? '(required)' : '（必需）'}</li>
-          <li>GEMINI_PROJECT_ID {isEn ? '(optional)' : '（可选）'}</li>
-          <li>GEMINI_BASE_URL {isEn ? '(optional)' : '（可选）'}</li>
+          <li>GEMINI_MODEL {isEn ? '(optional, default: gemini-pro)' : '（可选，默认：gemini-pro）'}</li>
+          <li>GOOGLE_GEMINI_BASE_URL {isEn ? '(optional)' : '（可选）'}</li>
         </ul>
       </div>
     </div>
