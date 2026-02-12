@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use reqwest::Client;
-use std::time::Duration;
+use crate::utils::logger::{log_info, log_warn};
 
 // Google OAuth configuration
 // Using the client ID from the original project source code provided
@@ -50,21 +50,14 @@ impl UserInfo {
     }
 }
 
-/// Helper to get a HTTP client
-pub fn get_client() -> Client {
-    Client::builder()
-        .timeout(Duration::from_secs(15))
-        // .proxy(...) // If we had proxy settings
-        .build()
-        .unwrap_or_else(|_| Client::new())
+/// 获取全局 HTTP 客户端（使用通用工具）
+pub fn get_client() -> &'static Client {
+    crate::utils::http::get_client()
 }
 
-/// Helper for long timeout client
-pub fn get_long_client() -> Client {
-    Client::builder()
-        .timeout(Duration::from_secs(60))
-        .build()
-        .unwrap_or_else(|_| Client::new())
+/// 获取长超时客户端（使用通用工具）
+pub fn get_long_client() -> &'static Client {
+    crate::utils::http::get_client()
 }
 
 /// Generate OAuth authorization URL
@@ -116,10 +109,10 @@ pub async fn exchange_code(code: &str, redirect_uri: &str) -> Result<TokenRespon
             .await
             .map_err(|e| format!("Token parsing failed: {}", e))?;
         
-        println!("Token exchange successful!");
+        log_info("Token exchange successful");
         
         if token_res.refresh_token.is_none() {
-            eprintln!("Warning: Google did not return a refresh_token.");
+            log_warn("Google did not return a refresh_token");
         }
         
         Ok(token_res)
@@ -139,8 +132,6 @@ pub async fn refresh_access_token(refresh_token: &str) -> Result<TokenResponse, 
         ("refresh_token", refresh_token),
         ("grant_type", "refresh_token"),
     ];
-
-    println!("Refreshing Token...");
     
     let response = client
         .post(TOKEN_URL)
@@ -155,7 +146,7 @@ pub async fn refresh_access_token(refresh_token: &str) -> Result<TokenResponse, 
             .await
             .map_err(|e| format!("Refresh data parsing failed: {}", e))?;
         
-        println!("Token refreshed successfully! Expires in: {} seconds", token_data.expires_in);
+        log_info(&format!("Token refreshed, expires in: {}s", token_data.expires_in));
         Ok(token_data)
     } else {
         let error_text = response.text().await.unwrap_or_default();

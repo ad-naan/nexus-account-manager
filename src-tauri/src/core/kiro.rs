@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use reqwest::Client;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 // use std::collections::HashMap; // removed
 
 const OIDC_BASE_URL: &str = "https://oidc.us-east-1.amazonaws.com";
@@ -11,6 +11,7 @@ const REGION: &str = "us-east-1";
 const CLI_USER_AGENT: &str = "aws-cli/2.15.0 Python/3.11.6 Windows/10 exe/AMD64 prompt/off command/codecatalyst.login";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct KiroTokenData {
     pub access_token: String,
     pub refresh_token: Option<String>,
@@ -51,11 +52,16 @@ pub struct DeviceAuthResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(non_snake_case)]
 struct TokenResponse {
-    access_token: String,
-    refresh_token: Option<String>,
-    expires_in: i64,
-    token_type: String,
+    #[serde(alias = "access_token")]
+    accessToken: String,
+    #[serde(alias = "refresh_token")]
+    refreshToken: Option<String>,
+    #[serde(alias = "expires_in")]
+    expiresIn: i64,
+    #[serde(alias = "token_type")]
+    tokenType: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -64,11 +70,9 @@ struct ErrorResponse {
     error_description: Option<String>,
 }
 
-fn get_client() -> Client {
-    Client::builder()
-        .timeout(Duration::from_secs(30))
-        .build()
-        .unwrap_or_default()
+// 获取全局 HTTP 客户端（使用通用工具）
+fn get_client() -> &'static Client {
+    crate::utils::http::get_client()
 }
 
 pub async fn register_client() -> Result<(String, String), String> {
@@ -159,9 +163,9 @@ pub async fn poll_token(
     if res.status().is_success() {
         let data: TokenResponse = res.json().await.map_err(|e| e.to_string())?;
         return Ok(KiroTokenData {
-            access_token: data.access_token,
-            refresh_token: data.refresh_token,
-            expires_in: data.expires_in,
+            access_token: data.accessToken,
+            refresh_token: data.refreshToken,
+            expires_in: data.expiresIn,
             client_id: Some(client_id.to_string()),
             client_secret: Some(client_secret.to_string()),
             region: REGION.to_string(),
@@ -190,6 +194,8 @@ pub async fn refresh_token(
     client_id: &str, 
     client_secret: &str
 ) -> Result<KiroTokenData, String> {
+    use crate::utils::logger::{log_info, log_error};
+    
     let client = get_client();
     let url = format!("{}/token", OIDC_BASE_URL);
     
@@ -200,7 +206,7 @@ pub async fn refresh_token(
         "refreshToken": refresh_token
     });
 
-    println!("Refreshing Kiro token...");
+    log_info("Refreshing Kiro token...");
 
     let res = client.post(&url)
         .json(&payload)
@@ -208,15 +214,31 @@ pub async fn refresh_token(
         .await
         .map_err(|e| e.to_string())?;
 
-    if !res.status().is_success() {
-        return Err(format!("Refresh failed: {}", res.status()));
+    let status = res.status();
+    if !status.is_success() {
+        let error_text = res.text().await.unwrap_or_default();
+        log_error(&format!("Refresh failed: {} - {}", status, error_text));
+        return Err(format!("Refresh failed: {} - {}", status, error_text));
     }
 
-    let data: TokenResponse = res.json().await.map_err(|e| e.to_string())?;
+    // 先获取原始文本，用于调试
+    let response_text = res.text().await.map_err(|e| e.to_string())?;
+    log_info(&format!("Token response (first 200 chars): {}", &response_text[..200.min(response_text.len())]));
+    
+    // 尝试解析 JSON
+    let data: TokenResponse = serde_json::from_str(&response_text)
+        .map_err(|e| {
+            log_error(&format!("Failed to parse token response: {}", e));
+            log_error(&format!("Response body: {}", response_text));
+            format!("解析响应失败: {}. 请检查 Token 格式是否正确", e)
+        })?;
+    
+    log_info("Token refreshed successfully");
+    
     Ok(KiroTokenData {
-        access_token: data.access_token,
-        refresh_token: data.refresh_token.or(Some(refresh_token.to_string())),
-        expires_in: data.expires_in,
+        access_token: data.accessToken,
+        refresh_token: data.refreshToken.or(Some(refresh_token.to_string())),
+        expires_in: data.expiresIn,
         client_id: Some(client_id.to_string()),
         client_secret: Some(client_secret.to_string()),
         region: REGION.to_string(),
@@ -226,9 +248,10 @@ pub async fn refresh_token(
 // === Quota / Usage Logic ===
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KiroQuotaData {
-    pub subscription_type: String,
-    pub subscription_title: String,
+    pub subscription_type: Option<String>,
+    pub subscription_title: Option<String>,
     pub total_limit: f64,
     pub current_usage: f64,
     pub percent_used: f64,
@@ -238,11 +261,12 @@ pub struct KiroQuotaData {
 }
 
 pub async fn get_usage_limits(access_token: &str) -> Result<KiroQuotaData, String> {
-    // Determine REST API Base URL
-    // Standard: https://us-east-1.codewhisperer.aws.amazon.com
-    // Fallback: https://codewhisperer.us-east-1.amazonaws.com
+    use crate::utils::logger::{log_info, log_warn};
     
-    let url = "https://us-east-1.codewhisperer.aws.amazon.com/getUsageLimits";
+    // 主端点和备用端点
+    let primary_url = "https://codewhisperer.us-east-1.amazonaws.com/getUsageLimits";
+    let fallback_url = "https://us-east-1.codewhisperer.aws.amazon.com/getUsageLimits";
+    
     let client = get_client();
     
     let params = [
@@ -251,22 +275,62 @@ pub async fn get_usage_limits(access_token: &str) -> Result<KiroQuotaData, Strin
         ("isEmailRequired", "true")
     ];
     
-    // We need to match Kiro's User-Agent perfectly to avoid 403
-    let res = client.get(url)
+    // 尝试主端点
+    log_info(&format!("[Kiro] Fetching usage limits from primary endpoint: {}", primary_url));
+    let res_result = client.get(primary_url)
         .query(&params)
         .header("Authorization", format!("Bearer {}", access_token))
         .header("Accept", "application/json")
         .header("User-Agent", CLI_USER_AGENT)
-        .header("x-amz-user-agent", format!("{} app/AmazonQ-For-CLI", CLI_USER_AGENT))
+        .header("x-amz-user-agent", CLI_USER_AGENT)
         .send()
-        .await
-        .map_err(|e| e.to_string())?;
+        .await;
+
+    // 如果主端点失败（网络错误或 403），尝试备用端点
+    let res = match res_result {
+        Ok(response) => {
+            let status = response.status();
+            log_info(&format!("[Kiro] Primary endpoint response status: {}", status));
+            
+            if status == 403 {
+                log_warn(&format!("[Kiro] Primary endpoint returned 403, trying fallback: {}", fallback_url));
+                client.get(fallback_url)
+                    .query(&params)
+                    .header("Authorization", format!("Bearer {}", access_token))
+                    .header("Accept", "application/json")
+                    .header("User-Agent", CLI_USER_AGENT)
+                    .header("x-amz-user-agent", CLI_USER_AGENT)
+                    .send()
+                    .await
+                    .map_err(|e| e.to_string())?
+            } else {
+                response
+            }
+        }
+        Err(e) => {
+            log_warn(&format!("[Kiro] Primary endpoint failed with error: {}, trying fallback: {}", e, fallback_url));
+            client.get(fallback_url)
+                .query(&params)
+                .header("Authorization", format!("Bearer {}", access_token))
+                .header("Accept", "application/json")
+                .header("User-Agent", CLI_USER_AGENT)
+                .header("x-amz-user-agent", CLI_USER_AGENT)
+                .send()
+                .await
+                .map_err(|e| e.to_string())?
+        }
+    };
 
     if !res.status().is_success() {
-        return Err(format!("Usage API failed: {}", res.status()));
+        let status = res.status();
+        let error_text = res.text().await.unwrap_or_default();
+        log_warn(&format!("[Kiro] Usage API failed: {} - {}", status, error_text));
+        return Err(format!("Usage API failed: {}", status));
     }
 
     let json: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
+    
+    log_info(&format!("[Kiro] Usage API response: {}", serde_json::to_string_pretty(&json).unwrap_or_default()));
     
     // Parse the complex response structure manually to extract key metrics
     // Refer to Kiro's parsing logic (lines 2045-2067 in index.ts)
@@ -326,9 +390,11 @@ pub async fn get_usage_limits(access_token: &str) -> Result<KiroQuotaData, Strin
     let email = json.pointer("/userInfo/email").and_then(|v| v.as_str()).map(|s| s.to_string());
     let user_id = json.pointer("/userInfo/userId").and_then(|v| v.as_str()).map(|s| s.to_string());
 
+    log_info(&format!("[Kiro] Parsed usage data - Email: {:?}, Limit: {}, Current: {}", email, total_limit, current_usage));
+
     Ok(KiroQuotaData {
-        subscription_type: sub_type,
-        subscription_title: sub_title,
+        subscription_type: Some(sub_type),
+        subscription_title: Some(sub_title),
         total_limit,
         current_usage,
         percent_used: if total_limit > 0.0 { current_usage / total_limit } else { 0.0 },

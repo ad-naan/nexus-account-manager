@@ -31,7 +31,47 @@
         },
         "kiro": {
             "name": "Kiro IDE",
-            "description": "管理您的 Kiro IDE 账号和许可证"
+            "description": "管理您的 Kiro IDE 账号和许可证",
+            "auth": {
+                "builderId": {
+                    "title": "使用 AWS Builder ID 登录",
+                    "initializing": "正在初始化...",
+                    "completeInBrowser": "请在浏览器中完成授权",
+                    "loginSuccess": "登录成功！",
+                    "loginFailed": "登录启动失败",
+                    "verificationCode": "您的验证码：",
+                    "openBrowser": "打开浏览器",
+                    "cancel": "取消",
+                    "authFailed": "授权失败",
+                    "authTimeout": "授权超时，请重试",
+                    "browserOpenFailed": "浏览器打开失败",
+                    "tryingFallback": "尝试备用方案...",
+                    "privateModeEnabled": "已启用",
+                    "privateModeDisabled": "已禁用"
+                },
+                "tokenImport": {
+                    "ssoToken": "SSO Token",
+                    "oidcCredentials": "OIDC 凭证",
+                    "ssoTokensLabel": "SSO Token（每行一个）",
+                    "oidcCredentialsLabel": "OIDC 凭证（JSON）",
+                    "requiredFields": "必需字段：clientId, clientSecret, refreshToken。支持驼峰和下划线命名。",
+                    "import": "导入",
+                    "processing": "正在处理 {{count}} 个 Token...",
+                    "processingCredentials": "正在处理 {{count}} 个凭证...",
+                    "addedSuccess": "成功添加 {{count}} 个账号！",
+                    "addedPartial": "添加了 {{success}}/{{total}} 个账号",
+                    "allFailed": "全部导入失败",
+                    "enterToken": "请输入 Token",
+                    "invalidJson": "JSON 格式错误",
+                    "tokenRefreshFailed": "Token 刷新失败。请检查凭证是否正确或已过期。",
+                    "missingField": "缺少必需字段。请检查 JSON 格式。"
+                },
+                "social": {
+                    "loggingIn": "正在使用 {{provider}} 登录...",
+                    "loginSuccess": "登录成功！",
+                    "loginFailed": "登录失败"
+                }
+            }
         },
         "claude": {
             "name": "Claude",
@@ -39,6 +79,10 @@
             "editAccount": "编辑 Claude 账号",
             "addAccount": "添加 Claude 账号",
             "switchSuccess": "成功切换到 Claude 账号",
+            "verify": "验证",
+            "verifying": "验证中...",
+            "verifySuccess": "API Key 有效",
+            "verifyFailed": "API Key 验证失败",
             "errors": {
                 "noApiKey": "账号配置中未找到 API Key",
                 "switchFailed": "切换账号失败"
@@ -75,7 +119,14 @@
         "apply": "应用",
         "actions": "操作",
         "gridView": "网格视图",
-        "listView": "列表视图"
+        "listView": "列表视图",
+        "email": "邮箱",
+        "name": "名称",
+        "status": "状态",
+        "type": "类型",
+        "title": "标题",
+        "region": "区域",
+        "unknownError": "未知错误"
     },
     "accounts": {
         "title": "账号管理",
@@ -87,14 +138,50 @@
         "usage": "使用量",
         "banned": "已封禁",
         "expired": "已过期",
-        "doubleClickToSwitch": "双击切换账号"
+        "doubleClickToSwitch": "双击切换账号",
+        "statusValues": {
+            "active": "正常",
+            "error": "错误",
+            "refreshing": "刷新中",
+            "banned": "已封禁",
+            "unknown": "未知"
+        },
+        "autoRefresh": "自动刷新",
+        "refreshing": "刷新中...",
+        "lastChecked": "最后检查",
+        "tokenExpiring": "令牌即将过期",
+        "tokenExpired": "令牌已过期",
+        "privateMode": "隐私/无痕模式",
+        "privateModeDesc": "在隐私模式下打开浏览器进行授权",
+        "basicInfo": "基本信息",
+        "platform": "平台",
+        "subscription": "订阅",
+        "current": "当前",
+        "percentUsed": "使用百分比",
+        "lastUpdated": "最后更新",
+        "credentials": "凭证",
+        "expiresAt": "过期时间",
+        "timestamps": "时间戳",
+        "createdAt": "创建时间",
+        "refreshSuccess": "刷新成功",
+        "refreshFailed": "刷新失败",
+        "switchSuccess": "切换成功",
+        "switchFailed": "切换失败",
+        "deleteSuccess": "删除成功",
+        "deleteFailed": "删除失败",
+        "addSuccess": "添加成功",
+        "addFailed": "添加失败",
+        "copySuccess": "复制成功",
+        "copyFailed": "复制失败",
+        "exportSuccess": "导出成功",
+        "exportFailed": "导出失败",
+        "lastUsedAt": "最后使用",
+        "lastCheckedAt": "最后检查"
     },
     "dialog": {
         "addAccount": "添加新账号",
-        "save": "保存账号",
-        "cancel": "取消",
-        "email": "邮箱",
-        "name": "显示名称 (可选)",
+        "selectMethod": "请选择添加方式",
+        "displayName": "显示名称 (可选)",
         "accessToken": "访问令牌 (Access Token)",
         "sessionToken": "会话令牌 (Session Cookie)",
         "refreshToken": "刷新令牌 (Refresh Token)",
@@ -114,38 +201,15 @@
         "tokenPlaceholder": "在此粘贴刷新令牌...\n\n支持：\n• 单个令牌: 1//0abc...\n• 多行粘贴\n• JSON 数组",
         "tokenHint": "以 1// 开头的令牌将被自动识别"
     },
-    "export": {
-        "title": "导出账号",
-        "format": {
-            "json": "JSON",
-            "jsonDesc": "完整数据，可用于导入",
-            "txt": "TXT",
-            "txtDesc": "纯文本格式",
-            "csv": "CSV",
-            "csvDesc": "Excel 兼容格式",
-            "clipboard": "剪贴板",
-            "clipboardDesc": "复制到剪贴板"
-        },
-        "includeCredentials": "包含凭证信息",
-        "includeCredentialsDesc": "包含 Token 等敏感数据",
-        "selected": "已选择 {{count}} 个",
-        "all": "全部 {{count}} 个"
-    },
     "details": {
-        "title": "账号详情",
-        "basicInfo": "基本信息",
         "tokenDevice": "令牌与设备",
         "kiroDetails": "Kiro 详情",
-        "email": "邮箱",
-        "name": "名称",
         "lastUsed": "最后使用",
         "created": "创建时间",
-        "usage": "使用量",
-        "subscription": "订阅",
         "expires": "到期时间",
         "quotaModels": "配额模型"
     },
-    "edit": {
+    "settings": {
         "title": "设置",
         "appearance": "外观",
         "theme": "主题",
@@ -183,8 +247,6 @@
         "clipboardDesc": "复制到剪贴板",
         "includeCredentials": "包含凭证信息",
         "includeCredentialsDesc": "包含 Token 等敏感数据，可用于完整导入",
-        "copied": "已复制",
-        "copy": "复制",
         "action": "导出"
     },
     "machineId": {

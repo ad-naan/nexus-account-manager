@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useDeferredValue } from 'react'
 import { AddAccountDialog } from './AddAccountDialog'
 import { ExportDialog } from '@/components/dialogs/ExportDialog'
 import { AntigravityAccountCard } from './AntigravityAccountCard'
 import { AccountTable } from '@/components/accounts/AccountTable'
 import { AccountSearch } from '@/components/accounts/AccountSearch'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
 import { usePlatformStore } from '@/stores/usePlatformStore'
 import { useTranslation } from 'react-i18next'
 import { AntigravityAccount } from '@/types/account'
@@ -19,6 +19,9 @@ export function AntigravityAccountList() {
   const [exportOpen, setExportOpen] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // 性能优化：使用 useDeferredValue 延迟搜索查询，避免输入卡顿
+  const deferredSearchQuery = useDeferredValue(searchQuery)
 
   const antigravityAccounts = useMemo(
     () => accounts.filter((acc): acc is AntigravityAccount => acc.platform === 'antigravity'),
@@ -26,15 +29,15 @@ export function AntigravityAccountList() {
   )
 
   const filteredAccounts = useMemo(() => {
-    if (!searchQuery.trim()) return antigravityAccounts
+    if (!deferredSearchQuery.trim()) return antigravityAccounts
 
-    const query = searchQuery.toLowerCase().trim()
+    const query = deferredSearchQuery.toLowerCase().trim()
     return antigravityAccounts.filter((account) => {
       const email = account.email?.toLowerCase() || ''
       const name = account.name?.toLowerCase() || ''
       return email.includes(query) || name.includes(query)
     })
-  }, [antigravityAccounts, searchQuery])
+  }, [antigravityAccounts, deferredSearchQuery])
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

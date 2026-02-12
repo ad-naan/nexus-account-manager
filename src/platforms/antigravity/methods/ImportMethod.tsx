@@ -4,10 +4,11 @@
  * 从 VSCode/Cursor 的 state.vscdb 导入账号
  */
 
+import { logError, logWarn } from '@/lib/logger'
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Label } from '@/components/ui/Label'
 import { Loader2, CheckCircle2, AlertCircle, FolderOpen, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { invoke } from '@tauri-apps/api/core'
@@ -64,7 +65,7 @@ export function ImportMethod({ onSuccess, onClose }: AddMethodProps) {
                 setDbPath(selected)
             }
         } catch (e: any) {
-            console.error('File picker error:', e)
+            logError('File picker error:', e)
         }
     }
 
@@ -131,7 +132,7 @@ export function ImportMethod({ onSuccess, onClose }: AddMethodProps) {
                         accessToken: tokenResponse.access_token
                     })
                 } catch (e) {
-                    console.warn('Failed to fetch quota:', e)
+                    logWarn('Failed to fetch quota:', e)
                 }
 
                 // 构造完整的 AntigravityAccount 对象
@@ -160,7 +161,7 @@ export function ImportMethod({ onSuccess, onClose }: AddMethodProps) {
                 onSuccess(account)
                 successCount++
             } catch (e) {
-                console.error('Failed to import token:', e)
+                logError('Failed to import token:', e)
             }
         }
 

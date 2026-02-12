@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useDeferredValue } from 'react'
 import { AddAccountDialog } from './AddAccountDialog'
 import { ExportDialog } from '@/components/dialogs/ExportDialog'
-import { AccountCard } from '@/components/accounts/AccountCard'
+import { KiroAccountCard } from './KiroAccountCard'
 import { AccountTable } from '@/components/accounts/AccountTable'
 import { AccountSearch } from '@/components/accounts/AccountSearch'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
 import { usePlatformStore } from '@/stores/usePlatformStore'
 import { useTranslation } from 'react-i18next'
 import { KiroAccount } from '@/types/account'
@@ -19,6 +19,9 @@ export function KiroAccountList() {
   const [exportOpen, setExportOpen] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // 性能优化：使用 useDeferredValue 延迟搜索查询，避免输入卡顿
+  const deferredSearchQuery = useDeferredValue(searchQuery)
 
   const kiroAccounts = useMemo(
     () => accounts.filter((acc): acc is KiroAccount => acc.platform === 'kiro'),
@@ -26,15 +29,15 @@ export function KiroAccountList() {
   )
 
   const filteredAccounts = useMemo(() => {
-    if (!searchQuery.trim()) return kiroAccounts
+    if (!deferredSearchQuery.trim()) return kiroAccounts
 
-    const query = searchQuery.toLowerCase().trim()
+    const query = deferredSearchQuery.toLowerCase().trim()
     return kiroAccounts.filter((account) => {
       const email = account.email?.toLowerCase() || ''
       const name = account.name?.toLowerCase() || ''
       return email.includes(query) || name.includes(query)
     })
-  }, [kiroAccounts, searchQuery])
+  }, [kiroAccounts, deferredSearchQuery])
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -119,7 +122,7 @@ export function KiroAccountList() {
           {viewMode === 'grid' ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredAccounts.map((account) => (
-                <AccountCard
+                <KiroAccountCard
                   key={account.id}
                   account={account}
                   onExport={() => setExportOpen(true)}

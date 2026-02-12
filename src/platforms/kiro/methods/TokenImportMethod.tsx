@@ -5,9 +5,9 @@
  */
 
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/Button'
+import { Label } from '@/components/ui/Label'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs'
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { invoke } from '@tauri-apps/api/core'
@@ -19,8 +19,8 @@ type Status = 'idle' | 'processing' | 'success' | 'error'
 type ImportType = 'sso' | 'oidc'
 
 export function TokenImportMethod({ onSuccess, onError, onClose }: AddMethodProps) {
-    const { i18n } = useTranslation()
-    const isEn = i18n.language === 'en'
+    const { t } = useTranslation()
+    const isEn = t('app.name') !== 'Nexus 账号管理器'
 
     const [importType, setImportType] = useState<ImportType>('sso')
     const [status, setStatus] = useState<Status>('idle')
@@ -31,7 +31,7 @@ export function TokenImportMethod({ onSuccess, onError, onClose }: AddMethodProp
     const handleSubmit = async () => {
         const trimmed = tokenInput.trim()
         if (!trimmed) {
-            setMessage(isEn ? 'Please enter token(s)' : '请输入 Token')
+            setMessage(t('platforms.kiro.auth.tokenImport.enterToken'))
             return
         }
 
@@ -48,7 +48,7 @@ export function TokenImportMethod({ onSuccess, onError, onClose }: AddMethodProp
         // 按行分割
         const tokens = input.split('\n').map(t => t.trim()).filter(t => t.length > 0)
         setProgress({ current: 0, total: tokens.length })
-        setMessage(isEn ? `Processing ${tokens.length} tokens...` : `正在处理 ${tokens.length} 个 Token...`)
+        setMessage(t('platforms.kiro.auth.tokenImport.processing', { count: tokens.length }))
 
         let successCount = 0
         const errors: string[] = []
@@ -57,10 +57,41 @@ export function TokenImportMethod({ onSuccess, onError, onClose }: AddMethodProp
             setProgress({ current: i + 1, total: tokens.length })
 
             try {
-                const account = await invoke<KiroAccount>('kiro_import_sso_token', {
+                const result = await invoke<any>('kiro_import_sso_token', {
                     token: tokens[i]
                 })
-                onSuccess(account)
+                
+                // Transform backend account to frontend KiroAccount
+                const kiroAccount: KiroAccount = {
+                    id: result.id,
+                    platform: 'kiro',
+                    email: result.email,
+                    name: result.name,
+                    isActive: false,
+                    lastUsedAt: Date.now(),
+                    createdAt: Date.now(),
+                    idp: 'Enterprise', // SSO tokens are typically enterprise
+                    credentials: {
+                        accessToken: result.accessToken,
+                        authMethod: 'sso'
+                    },
+                    subscription: {
+                        type: result.quota?.subscriptionType || 'Free',
+                        title: result.quota?.subscriptionTitle
+                    },
+                    usage: {
+                        current: result.quota?.currentUsage || 0,
+                        limit: result.quota?.totalLimit || 25,
+                        percentUsed: result.quota?.totalLimit > 0
+                            ? (result.quota.currentUsage || 0) / result.quota.totalLimit
+                            : 0,
+                        lastUpdated: Date.now()
+                    },
+                    status: 'active',
+                    lastCheckedAt: Date.now()
+                }
+                
+                onSuccess(kiroAccount)
                 successCount++
             } catch (e: any) {
                 errors.push(`#${i + 1}: ${e.message || 'Failed'}`)
@@ -78,12 +109,12 @@ export function TokenImportMethod({ onSuccess, onError, onClose }: AddMethodProp
             credentials = Array.isArray(parsed) ? parsed : [parsed]
         } catch {
             setStatus('error')
-            setMessage(isEn ? 'Invalid JSON format' : 'JSON 格式错误')
+            setMessage(t('platforms.kiro.auth.tokenImport.invalidJson'))
             return
         }
 
         setProgress({ current: 0, total: credentials.length })
-        setMessage(isEn ? `Processing ${credentials.length} credentials...` : `正在处理 ${credentials.length} 个凭证...`)
+        setMessage(t('platforms.kiro.auth.tokenImport.processingCredentials', { count: credentials.length }))
 
         let successCount = 0
         const errors: string[] = []
@@ -92,13 +123,57 @@ export function TokenImportMethod({ onSuccess, onError, onClose }: AddMethodProp
             setProgress({ current: i + 1, total: credentials.length })
 
             try {
-                const account = await invoke<KiroAccount>('kiro_verify_credentials', {
+                const result = await invoke<any>('kiro_verify_credentials', {
                     credentials: credentials[i]
                 })
-                onSuccess(account)
+                
+                // Transform backend account to frontend KiroAccount
+                const kiroAccount: KiroAccount = {
+                    id: result.id,
+                    platform: 'kiro',
+                    email: result.email,
+                    name: result.name,
+                    isActive: false,
+                    lastUsedAt: Date.now(),
+                    createdAt: Date.now(),
+                    idp: 'BuilderId', // OIDC credentials are typically BuilderId
+                    credentials: {
+                        accessToken: result.accessToken,
+                        refreshToken: result.refreshToken,
+                        clientId: result.clientId,
+                        clientSecret: result.clientSecret,
+                        expiresAt: result.expiresIn ? Date.now() + result.expiresIn * 1000 : undefined,
+                        authMethod: 'oidc',
+                        region: credentials[i].region || 'us-east-1'
+                    },
+                    subscription: {
+                        type: result.quota?.subscriptionType || 'Free',
+                        title: result.quota?.subscriptionTitle
+                    },
+                    usage: {
+                        current: result.quota?.currentUsage || 0,
+                        limit: result.quota?.totalLimit || 25,
+                        percentUsed: result.quota?.totalLimit > 0
+                            ? (result.quota?.currentUsage || 0) / result.quota.totalLimit
+                            : 0,
+                        lastUpdated: Date.now()
+                    },
+                    status: 'active',
+                    lastCheckedAt: Date.now()
+                }
+                
+                onSuccess(kiroAccount)
                 successCount++
             } catch (e: any) {
-                errors.push(`#${i + 1}: ${e.message || 'Failed'}`)
+                const errorMsg = e.message || e || 'Failed'
+                // 提供更友好的错误提示
+                let friendlyError = errorMsg
+                if (errorMsg.includes('Token 刷新失败')) {
+                    friendlyError = t('platforms.kiro.auth.tokenImport.tokenRefreshFailed')
+                } else if (errorMsg.includes('缺少')) {
+                    friendlyError = t('platforms.kiro.auth.tokenImport.missingField')
+                }
+                errors.push(`#${i + 1}: ${friendlyError}`)
             }
         }
 
@@ -108,14 +183,14 @@ export function TokenImportMethod({ onSuccess, onError, onClose }: AddMethodProp
     const finishImport = (success: number, total: number, errors: string[]) => {
         if (success === total) {
             setStatus('success')
-            setMessage(isEn ? `Added ${success} accounts!` : `成功添加 ${success} 个账号！`)
+            setMessage(t('platforms.kiro.auth.tokenImport.addedSuccess', { count: success }))
             setTimeout(onClose, 1500)
         } else if (success > 0) {
             setStatus('success')
-            setMessage(isEn ? `Added ${success}/${total} accounts` : `添加了 ${success}/${total} 个账号`)
+            setMessage(t('platforms.kiro.auth.tokenImport.addedPartial', { success, total }))
         } else {
             setStatus('error')
-            setMessage(errors[0] || (isEn ? 'All imports failed' : '全部导入失败'))
+            setMessage(errors[0] || t('platforms.kiro.auth.tokenImport.allFailed'))
             onError(errors.join('\n'))
         }
     }
@@ -124,26 +199,33 @@ export function TokenImportMethod({ onSuccess, onError, onClose }: AddMethodProp
         <div className="space-y-4">
             <Tabs value={importType} onValueChange={(v) => setImportType(v as ImportType)}>
                 <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="sso">SSO Token</TabsTrigger>
-                    <TabsTrigger value="oidc">OIDC 凭证</TabsTrigger>
+                    <TabsTrigger value="sso">{t('platforms.kiro.auth.tokenImport.ssoToken')}</TabsTrigger>
+                    <TabsTrigger value="oidc">{t('platforms.kiro.auth.tokenImport.oidcCredentials')}</TabsTrigger>
                 </TabsList>
             </Tabs>
 
             <div className="space-y-2">
                 <Label>
                     {importType === 'sso'
-                        ? (isEn ? 'SSO Tokens (one per line)' : 'SSO Token（每行一个）')
-                        : (isEn ? 'OIDC Credentials (JSON)' : 'OIDC 凭证（JSON）')}
+                        ? t('platforms.kiro.auth.tokenImport.ssoTokensLabel')
+                        : t('platforms.kiro.auth.tokenImport.oidcCredentialsLabel')}
                 </Label>
                 <textarea
                     className="w-full h-32 rounded-lg border border-input bg-background px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
                     placeholder={importType === 'sso'
                         ? 'eyJhbGciOiJSUz...\neyJhbGciOiJSUz...'
-                        : '[\n  { "refreshToken": "...", "clientId": "...", "clientSecret": "..." }\n]'}
+                        : isEn 
+                            ? '{\n  "clientId": "amzn1.application...",\n  "clientSecret": "amzn1.oa2-cs...",\n  "refreshToken": "Atzr|..."\n}'
+                            : '{\n  "clientId": "amzn1.application...",\n  "clientSecret": "amzn1.oa2-cs...",\n  "refreshToken": "Atzr|..."\n}'}
                     value={tokenInput}
                     onChange={(e) => setTokenInput(e.target.value)}
                     disabled={status === 'processing'}
                 />
+                {importType === 'oidc' && (
+                    <p className="text-xs text-muted-foreground">
+                        {t('platforms.kiro.auth.tokenImport.requiredFields')}
+                    </p>
+                )}
             </div>
 
             <Button
@@ -154,7 +236,7 @@ export function TokenImportMethod({ onSuccess, onError, onClose }: AddMethodProp
                 {status === 'processing' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {status === 'processing'
                     ? `${progress.current}/${progress.total}`
-                    : (isEn ? 'Import' : '导入')}
+                    : t('platforms.kiro.auth.tokenImport.import')}
             </Button>
 
             {/* Status Message */}

@@ -6,6 +6,8 @@ pub mod machine;
 pub mod antigravity;
 pub mod kiro;
 pub mod claude;
+pub mod codex;
+pub mod gemini;
 
 pub struct AppState {
     pub storage: Mutex<Storage>,
@@ -23,9 +25,16 @@ pub fn add_account(
     state: State<AppState>,
     account: Account,
 ) -> Result<Account, String> {
+    use crate::utils::logger::log_info;
+    
+    log_info(&format!("[Storage] Adding account: {}", account.email));
+    log_info(&format!("[Storage] Platform data: {}", serde_json::to_string_pretty(&account.platform_data).unwrap_or_default()));
+    
     let mut storage = state.storage.lock().unwrap();
     storage.accounts.push(account.clone());
     storage.save(&app)?;
+    
+    log_info("[Storage] Account saved successfully");
     Ok(account)
 }
 

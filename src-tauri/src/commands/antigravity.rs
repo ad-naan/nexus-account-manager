@@ -7,6 +7,8 @@ use tauri::command;
 use std::path::PathBuf;
 use rusqlite::Connection;
 use base64::{engine::general_purpose, Engine as _};
+use crate::utils::logger::{log_info, log_warn};
+use crate::utils::common::{generate_account_id, calculate_expiry_timestamp};
 
 /// OAuth URL 响应
 #[derive(Serialize)]
@@ -64,7 +66,7 @@ pub async fn antigravity_complete_oauth(app: AppHandle, code: String) -> Result<
     
     // Create Account Data
     Ok(AntigravityAccountData {
-        id: uuid::Uuid::new_v4().to_string(),
+        id: generate_account_id(),
         email: user_info.email.clone(),
         name: user_info.get_display_name(),
         refresh_token: token_res.refresh_token.unwrap_or_default(),
@@ -87,7 +89,7 @@ pub async fn antigravity_add_by_token(refresh_token: String) -> Result<Antigravi
     let name = user_info.get_display_name();
     
     Ok(AntigravityAccountData {
-        id: uuid::Uuid::new_v4().to_string(),
+        id: generate_account_id(),
         email: user_info.email,
         name,
         refresh_token,
@@ -127,14 +129,12 @@ pub fn antigravity_scan_databases() -> Result<Vec<FoundToken>, String> {
     // 使用通用工具获取所有可能的路径
     let all_paths = paths::get_ide_database_paths();
     
-    println!("Scanning {} possible paths...", all_paths.len());
+    log_info(&format!("Scanning {} possible database paths", all_paths.len()));
     
     for path in all_paths {
         if path.exists() {
-            println!("✓ Found database at: {:?}", path);
             match extract_token_from_db(&path) {
                 Ok(token) => {
-                    println!("  -> Extracted token successfully");
                     let source = path.parent()
                         .and_then(|p| p.parent())
                         .and_then(|p| p.parent())
@@ -142,19 +142,18 @@ pub fn antigravity_scan_databases() -> Result<Vec<FoundToken>, String> {
                         .and_then(|n| n.to_str())
                         .unwrap_or("unknown")
                         .to_string();
+                    log_info(&format!("Token extracted from: {}", source));
                     tokens.push(FoundToken {
                         source,
                         token,
                     });
                 }
-                Err(e) => {
-                    println!("  -> {}", e);
-                }
+                Err(_) => {}
             }
         }
     }
     
-    println!("\nTotal tokens found: {}", tokens.len());
+    log_info(&format!("Total tokens found: {}", tokens.len()));
     Ok(tokens)
 }
 
@@ -293,35 +292,28 @@ pub async fn antigravity_switch_account(
     refresh_token: String,
     email: String,
 ) -> Result<TokenRefreshResponse, String> {
-    println!("[Switch] Starting account switch: {} ({})", email, account_id);
+    log_info(&format!("Switching account: {} ({})", email, &account_id[..8]));
     
     // 1. 刷新 Token 确保有效
     let token_res = oauth::refresh_access_token(&refresh_token).await?;
-    println!("[Switch] Token refreshed successfully");
     
     // 2. 关闭 Antigravity IDE 进程（并保存路径）
     if crate::utils::process::is_antigravity_running() {
-        println!("[Switch] Closing Antigravity IDE...");
+        log_info("Closing Antigravity IDE");
         crate::utils::process::close_antigravity(20)?;
-        println!("[Switch] Antigravity IDE closed");
-    } else {
-        println!("[Switch] Antigravity IDE is not running, skipping close");
     }
     
     // 3. 注入 Token 到数据库
     let db_path = crate::utils::db_inject::get_db_path()?;
-    println!("[Switch] Database path: {}", db_path.display());
     
     // 备份数据库
     let backup_path = db_path.with_extension("vscdb.backup");
     if let Err(e) = std::fs::copy(&db_path, &backup_path) {
-        println!("[Switch] Warning: Failed to backup database: {}", e);
-    } else {
-        println!("[Switch] Database backed up to: {}", backup_path.display());
+        log_warn(&format!("Failed to backup database: {}", e));
     }
     
     // 计算过期时间戳（毫秒）
-    let expiry_timestamp = chrono::Utc::now().timestamp_millis() + (token_res.expires_in * 1000);
+    let expiry_timestamp = calculate_expiry_timestamp(token_res.expires_in);
     
     // 注入 Token
     crate::utils::db_inject::inject_token(
@@ -331,14 +323,12 @@ pub async fn antigravity_switch_account(
         expiry_timestamp,
         &email,
     )?;
-    println!("[Switch] Token injected to database");
     
     // 4. 重启 Antigravity IDE
-    println!("[Switch] Starting Antigravity IDE...");
+    log_info("Starting Antigravity IDE");
     crate::utils::process::start_antigravity()?;
-    println!("[Switch] Antigravity IDE started");
     
-    println!("[Switch] Account switch completed successfully");
+    log_info("Account switch completed");
     
     // 返回新的 Token 信息，前端会更新账号状态
     Ok(TokenRefreshResponse {

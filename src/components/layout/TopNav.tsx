@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { Home, Users, Settings, Moon, Sun, Globe, Fingerprint } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/Button'
 import { useTheme } from '@/hooks/useTheme'
 import { useTranslation } from 'react-i18next'
 

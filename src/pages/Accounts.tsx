@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router-dom'
 import { getAllPlatforms, getPlatform } from '@/platforms/registry'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/Button'
 
 export function Accounts() {
   const [searchParams, setSearchParams] = useSearchParams()

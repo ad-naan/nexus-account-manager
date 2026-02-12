@@ -1,7 +1,8 @@
 {
   "env": {
     "GEMINI_API_KEY": "AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-    "GEMINI_PROJECT_ID": "my-project-id",
-    "GEMINI_BASE_URL": "https://generativelanguage.googleapis.com/v1"
+    "GOOGLE_API_KEY": "AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "GEMINI_MODEL": "gemini-2.0-flash-exp",
+    "GOOGLE_GEMINI_BASE_URL": "https://generativelanguage.googleapis.com"
   }
 }

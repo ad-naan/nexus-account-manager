@@ -2,7 +2,30 @@ use serde::{Deserialize, Serialize};
 
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tauri::{AppHandle, Manager};
+use tokio::sync::Mutex as TokioMutex;
+use tokio::time::{sleep, Duration};
+use crate::utils::logger::{log_info, log_debug};
+
+// 防抖保存状态
+struct DebounceSaveState {
+    pending: bool,
+    last_save_time: std::time::Instant,
+}
+
+impl DebounceSaveState {
+    fn new() -> Self {
+        Self {
+            pending: false,
+            last_save_time: std::time::Instant::now(),
+        }
+    }
+}
+
+// 全局防抖状态
+static DEBOUNCE_STATE: once_cell::sync::Lazy<Arc<TokioMutex<DebounceSaveState>>> = 
+    once_cell::sync::Lazy::new(|| Arc::new(TokioMutex::new(DebounceSaveState::new())));
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Account {
@@ -17,7 +40,7 @@ pub struct Account {
     pub platform_data: serde_json::Value,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Storage {
     pub accounts: Vec<Account>,
     pub machine_id: Option<String>,
@@ -37,7 +60,7 @@ impl Storage {
         let path = get_storage_path(app)?;
         
         if !path.exists() {
-            println!("Storage file not found at {:?}, creating new storage", path);
+            log_info(&format!("Storage file not found, creating new: {}", path.display()));
             return Ok(Self::new());
         }
 
@@ -47,7 +70,7 @@ impl Storage {
         let storage: Storage = serde_json::from_str(&content)
             .map_err(|e| format!("Failed to parse storage: {}", e))?;
         
-        println!("Loaded {} accounts from {:?}", storage.accounts.len(), path);
+        log_info(&format!("Loaded {} accounts from {}", storage.accounts.len(), path.display()));
         Ok(storage)
     }
 
@@ -66,7 +89,47 @@ impl Storage {
         fs::write(&path, content)
             .map_err(|e| format!("Failed to write storage: {}", e))?;
         
-        println!("Saved {} accounts to {:?}", self.accounts.len(), path);
+        log_info(&format!("Saved {} accounts to {}", self.accounts.len(), path.display()));
+        Ok(())
+    }
+
+    /// 防抖保存 - 300ms 内的多次修改只触发一次写入
+    /// 
+    /// 使用场景：批量操作、频繁更新
+    #[allow(dead_code)]
+    pub async fn save_debounced(&self, app: AppHandle) -> Result<(), String> {
+        const DEBOUNCE_MS: u64 = 300;
+        
+        let state = DEBOUNCE_STATE.clone();
+        let storage_clone = self.clone();
+        
+        // 标记有待保存的更改
+        {
+            let mut guard = state.lock().await;
+            guard.pending = true;
+            log_debug("Storage save debounced - waiting...");
+        }
+        
+        // 等待防抖时间
+        sleep(Duration::from_millis(DEBOUNCE_MS)).await;
+        
+        // 检查是否仍需保存
+        let should_save = {
+            let mut guard = state.lock().await;
+            if guard.pending {
+                guard.pending = false;
+                guard.last_save_time = std::time::Instant::now();
+                true
+            } else {
+                false
+            }
+        };
+        
+        if should_save {
+            log_debug("Executing debounced save");
+            storage_clone.save(&app)?;
+        }
+        
         Ok(())
     }
 }
@@ -206,7 +269,7 @@ pub fn set_storage_path(
         storage.save(&app)?;
     }
     
-    println!("Storage path updated to: {:?}", path_buf);
+    log_info(&format!("Storage path updated to: {:?}", path_buf));
     Ok(())
 }
 

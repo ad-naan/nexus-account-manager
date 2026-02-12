@@ -10,10 +10,11 @@
  * }
  */
 
+import { logError } from '@/lib/logger'
 import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/Button'
+import { Label } from '@/components/ui/Label'
+import { Input } from '@/components/ui/Input'
 import { Loader2, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
@@ -76,7 +77,7 @@ export function JsonMethod({ onSuccess, onError, onClose, initialData, isEdit = 
           setJsonInput(JSON.stringify(data.config, null, 2))
         }
       } catch (e) {
-        console.error('Failed to parse initial data:', e)
+        logError('Failed to parse initial data:', e)
       }
     }
   }, [initialData, isEdit])

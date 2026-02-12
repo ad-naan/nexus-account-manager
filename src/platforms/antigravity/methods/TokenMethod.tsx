@@ -4,9 +4,10 @@
  * 通过粘贴 Refresh Token 批量添加账号
  */
 
+import { logWarn } from '@/lib/logger'
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/Button'
+import { Label } from '@/components/ui/Label'
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { invoke } from '@tauri-apps/api/core'
@@ -103,7 +104,7 @@ export function TokenMethod({ onSuccess, onError, onClose }: AddMethodProps) {
                         accessToken: tokenResponse.access_token
                     })
                 } catch (e) {
-                    console.warn('Failed to fetch quota:', e)
+                    logWarn('Failed to fetch quota:', e)
                 }
 
                 // 构造完整的 AntigravityAccount 对象

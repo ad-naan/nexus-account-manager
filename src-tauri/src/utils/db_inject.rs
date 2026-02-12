@@ -5,6 +5,7 @@
 use rusqlite::Connection;
 use base64::{engine::general_purpose, Engine as _};
 use std::path::PathBuf;
+use crate::utils::logger::log_info;
 
 /// 获取 Antigravity IDE 数据库路径
 pub fn get_db_path() -> Result<PathBuf, String> {
@@ -78,7 +79,7 @@ pub fn inject_token(
     expiry_timestamp: i64,
     email: &str,
 ) -> Result<(), String> {
-    println!("[DB] Injecting token for: {}", email);
+    log_info(&format!("Injecting token for: {}", email));
     
     let conn = Connection::open(db_path)
         .map_err(|e| format!("Failed to open database: {}", e))?;
@@ -94,7 +95,7 @@ pub fn inject_token(
     
     // 如果旧格式失败，尝试新格式
     if old_format_result.is_err() {
-        println!("[DB] Old format failed, trying new format...");
+        log_info("Old format failed, trying new format");
         inject_new_format(&conn, access_token, refresh_token, expiry_timestamp)?;
     }
     
@@ -105,7 +106,7 @@ pub fn inject_token(
     )
     .map_err(|e| format!("Failed to write onboarding flag: {}", e))?;
     
-    println!("[DB] Token injected successfully");
+    log_info("Token injected successfully");
     Ok(())
 }
 
@@ -158,7 +159,7 @@ fn inject_old_format(
     )
     .map_err(|e| format!("Failed to write data: {}", e))?;
     
-    println!("[DB] Old format injection successful");
+    log_info("Old format injection successful");
     Ok(())
 }
 
@@ -190,7 +191,7 @@ fn inject_new_format(
     )
     .map_err(|e| format!("Failed to write new format: {}", e))?;
     
-    println!("[DB] New format injection successful");
+    log_info("New format injection successful");
     Ok(())
 }
 

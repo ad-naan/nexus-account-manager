@@ -1,3 +1,4 @@
+import { logError } from '@/lib/logger'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { MainLayout } from './components/layout/MainLayout'
 import { Dashboard } from './pages/Dashboard'
@@ -15,7 +16,7 @@ function App() {
   useEffect(() => {
     // 应用启动时加载所有账户
     loadAllAccounts().catch((error) => {
-      console.error('Failed to load accounts on startup:', error)
+      logError('Failed to load accounts on startup:', error)
     })
   }, [loadAllAccounts])
 

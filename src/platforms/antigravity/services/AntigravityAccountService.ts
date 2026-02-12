@@ -3,6 +3,7 @@
  * 处理平台特定的账号操作逻辑
  */
 
+import { logError, logInfo } from '@/lib/logger'
 import { invoke } from '@tauri-apps/api/core'
 import type { AntigravityAccount, AntigravityQuotaData } from '@/types/account'
 import { usePlatformStore } from '@/stores/usePlatformStore'
@@ -29,7 +30,7 @@ export class AntigravityAccountService {
       throw new Error('Account not found or not an Antigravity account')
     }
 
-    console.log(`[Switch] Starting switch to: ${targetAccount.email}`)
+    logInfo(`[Switch] Starting switch to: ${targetAccount.email}`)
 
     // 1. 调用后端切换命令（包含进程控制和数据库注入）
     const tokenResponse = await invoke<{
@@ -42,7 +43,7 @@ export class AntigravityAccountService {
       email: targetAccount.email,
     })
 
-    console.log('[Switch] Backend switch completed successfully')
+    logInfo('[Switch] Backend switch completed successfully')
 
     // 2. 确保账号有绑定的机器码（设备指纹隔离）
     const machineService = MachineIdService.getInstance()
@@ -52,7 +53,7 @@ export class AntigravityAccountService {
       // 如果没有绑定机器码，生成新的并绑定
       machineId = await machineService.generateMachineId()
       await machineService.bindMachineId(accountId, machineId)
-      console.log(`[Switch] Generated and bound new machine ID for account: ${targetAccount.email}`)
+      logInfo(`[Switch] Generated and bound new machine ID for account: ${targetAccount.email}`)
     }
 
     // 3. 准备更新数据
@@ -62,7 +63,7 @@ export class AntigravityAccountService {
     // 4. 批量更新：先将所有同平台账号设为非活跃，再激活目标账号
     const antigravityAccounts = accounts.filter(a => a.platform === 'antigravity')
     
-    console.log(`[Switch] Updating ${antigravityAccounts.length} Antigravity accounts`)
+    logInfo(`[Switch] Updating ${antigravityAccounts.length} Antigravity accounts`)
     
     // 先将所有账号设为非活跃
     for (const acc of antigravityAccounts) {
@@ -70,7 +71,7 @@ export class AntigravityAccountService {
         await store.updateAccount(acc.id, {
           isActive: false
         })
-        console.log(`[Switch] Deactivated: ${acc.email}`)
+        logInfo(`[Switch] Deactivated: ${acc.email}`)
       }
     }
 
@@ -86,8 +87,8 @@ export class AntigravityAccountService {
       }
     })
 
-    console.log(`[Switch] Activated: ${targetAccount.email}`)
-    console.log(`[Switch] Switch completed successfully`)
+    logInfo(`[Switch] Activated: ${targetAccount.email}`)
+    logInfo(`[Switch] Switch completed successfully`)
   }
 
   /**
@@ -146,7 +147,7 @@ export class AntigravityAccountService {
         await this.refreshAccount(account)
         success++
       } catch (e) {
-        console.error(`Failed to refresh account ${account.email}:`, e)
+        logError(`Failed to refresh account ${account.email}:`, e)
         failed++
       }
     }

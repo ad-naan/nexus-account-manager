@@ -4,10 +4,11 @@
  * 通过 Google OAuth 授权添加账号
  */
 
+import { logError, logInfo, logWarn } from '@/lib/logger'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Label } from '@/components/ui/Label'
 import { ExternalLink, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listen } from '@tauri-apps/api/event'
@@ -43,7 +44,7 @@ export function OAuthMethod({ onSuccess, onError, onClose }: AddMethodProps) {
 
     // 自动完成 OAuth（后端已接收到回调）
     const autoCompleteOAuth = useCallback(async () => {
-        console.log('[OAuth] Auto-completing OAuth flow...')
+        logInfo('[OAuth] Auto-completing OAuth flow...')
         setStatus('processing')
         setMessage(isEn ? 'Processing authorization...' : '正在处理授权...')
 
@@ -56,7 +57,7 @@ export function OAuthMethod({ onSuccess, onError, onClose }: AddMethodProps) {
                 refresh_token: string
             }>('antigravity_complete_oauth', { code: '' })
 
-            console.log('[OAuth] Account data received:', accountData.email)
+            logInfo('[OAuth] Account data received:', accountData.email)
 
             // 刷新 token 获取 access_token
             const tokenResponse = await invoke<{
@@ -67,7 +68,7 @@ export function OAuthMethod({ onSuccess, onError, onClose }: AddMethodProps) {
                 refreshToken: accountData.refresh_token
             })
 
-            console.log('[OAuth] Token refreshed')
+            logInfo('[OAuth] Token refreshed')
 
             // 获取配额信息
             let quotaData: AntigravityQuotaData | undefined = undefined
@@ -75,9 +76,9 @@ export function OAuthMethod({ onSuccess, onError, onClose }: AddMethodProps) {
                 quotaData = await invoke<AntigravityQuotaData>('antigravity_get_quota', {
                     accessToken: tokenResponse.access_token
                 })
-                console.log('[OAuth] Quota data fetched')
+                logInfo('[OAuth] Quota data fetched')
             } catch (e) {
-                console.warn('Failed to fetch quota:', e)
+                logWarn('Failed to fetch quota:', e)
             }
 
             // 构造完整的 AntigravityAccount 对象
@@ -103,7 +104,7 @@ export function OAuthMethod({ onSuccess, onError, onClose }: AddMethodProps) {
                 is_forbidden: quotaData?.is_forbidden || false
             }
 
-            console.log('[OAuth] Account object constructed, adding to store...')
+            logInfo('[OAuth] Account object constructed, adding to store...')
             setStatus('success')
             setMessage(isEn ? 'Account added successfully!' : '账号添加成功！')
 
@@ -112,7 +113,7 @@ export function OAuthMethod({ onSuccess, onError, onClose }: AddMethodProps) {
                 onClose()
             }, 1000)
         } catch (e: any) {
-            console.error('[OAuth] Auto-complete failed:', e)
+            logError('[OAuth] Auto-complete failed:', e)
             setStatus('error')
             setMessage(e.message || (isEn ? 'OAuth failed' : 'OAuth 失败'))
             if (onError) {
@@ -127,19 +128,19 @@ export function OAuthMethod({ onSuccess, onError, onClose }: AddMethodProps) {
 
         const setupListener = async () => {
             unlisten = await listen('oauth-callback-received', async () => {
-                console.log('[OAuth] Event received, status:', statusRef.current)
+                logInfo('[OAuth] Event received, status:', statusRef.current)
                 
                 // 只有在等待状态时才自动完成
                 if (statusRef.current !== 'waiting') {
-                    console.log('[OAuth] Ignoring event, not in waiting state')
+                    logInfo('[OAuth] Ignoring event, not in waiting state')
                     return
                 }
 
-                console.log('[OAuth] Starting auto-complete...')
+                logInfo('[OAuth] Starting auto-complete...')
                 await autoCompleteOAuth()
             })
             
-            console.log('[OAuth] Event listener registered')
+            logInfo('[OAuth] Event listener registered')
         }
 
         setupListener()
@@ -147,7 +148,7 @@ export function OAuthMethod({ onSuccess, onError, onClose }: AddMethodProps) {
         return () => {
             if (unlisten) {
                 unlisten()
-                console.log('[OAuth] Event listener unregistered')
+                logInfo('[OAuth] Event listener unregistered')
             }
         }
     }, [autoCompleteOAuth])
@@ -162,7 +163,7 @@ export function OAuthMethod({ onSuccess, onError, onClose }: AddMethodProps) {
             const url = await invoke<string>('antigravity_prepare_oauth_url')
             setOauthUrl(url)
             
-            console.log('[OAuth] OAuth URL generated:', url)
+            logInfo('[OAuth] OAuth URL generated:', url)
 
             // 打开浏览器
             try {
@@ -171,16 +172,16 @@ export function OAuthMethod({ onSuccess, onError, onClose }: AddMethodProps) {
                 setMessage(isEn
                     ? 'Please complete authorization in browser. The account will be added automatically.'
                     : '请在浏览器中完成授权，账号将自动添加。')
-                console.log('[OAuth] Browser opened, waiting for callback...')
+                logInfo('[OAuth] Browser opened, waiting for callback...')
             } catch (e) {
-                console.error("Failed to open URL via plugin, falling back to window.open", e);
+                logError("Failed to open URL via plugin, falling back to window.open", e);
                 window.open(url, '_blank')
                 setMessage(isEn
                     ? 'Please complete authorization in browser. The account will be added automatically.'
                     : '请在浏览器中完成授权，账号将自动添加。')
             }
         } catch (e: any) {
-            console.error('[OAuth] Failed to start OAuth:', e)
+            logError('[OAuth] Failed to start OAuth:', e)
             setStatus('error')
             setMessage(e.message || (isEn ? 'Failed to start OAuth' : 'OAuth 启动失败'))
             if (onError) {
@@ -225,7 +226,7 @@ export function OAuthMethod({ onSuccess, onError, onClose }: AddMethodProps) {
                     accessToken: tokenResponse.access_token
                 })
             } catch (e) {
-                console.warn('Failed to fetch quota:', e)
+                logWarn('Failed to fetch quota:', e)
             }
 
             // 构造完整的 AntigravityAccount 对象

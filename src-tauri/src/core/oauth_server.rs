@@ -5,6 +5,7 @@ use tokio::sync::watch;
 use std::sync::{Mutex, OnceLock};
 use tauri::Url;
 use crate::core::oauth;
+use crate::utils::logger::{log_info, log_error, log_warn};
 
 struct OAuthFlowState {
     auth_url: String,
@@ -120,11 +121,11 @@ pub async fn ensure_oauth_flow_prepared(app_handle: Option<tauri::AppHandle>) ->
 
             let (result, response_html) = match (code, state_valid) {
                 (Some(code), true) => {
-                    println!("Successfully captured OAuth code");
+                    log_info("OAuth code captured successfully");
                     (Ok(code), oauth_success_html())
                 },
                 (Some(_), false) => {
-                    eprintln!("OAuth callback state mismatch");
+                    log_error("OAuth callback state mismatch");
                     (Err("OAuth state mismatch".to_string()), oauth_fail_html())
                 },
                 (None, _) => (Err("Failed to get Authorization Code".to_string()), oauth_fail_html()),
@@ -136,13 +137,12 @@ pub async fn ensure_oauth_flow_prepared(app_handle: Option<tauri::AppHandle>) ->
             // 发射事件到前端
             if let Some(h) = app_handle_for_tasks {
                 use tauri::Emitter;
-                println!("[OAuth Server] Emitting oauth-callback-received event");
                 match h.emit("oauth-callback-received", ()) {
-                    Ok(_) => println!("[OAuth Server] Event emitted successfully"),
-                    Err(e) => eprintln!("[OAuth Server] Failed to emit event: {}", e),
+                    Ok(_) => log_info("OAuth callback event emitted"),
+                    Err(e) => log_error(&format!("Failed to emit event: {}", e)),
                 }
             } else {
-                println!("[OAuth Server] Warning: No app handle available for event emission");
+                log_warn("No app handle available for event emission");
             }
             
             let _ = tx.send(result).await;

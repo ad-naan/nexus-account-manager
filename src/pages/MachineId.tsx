@@ -8,12 +8,13 @@
  * - 管理账号与机器码的绑定关系
  */
 
+import { logError } from '@/lib/logger'
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Label } from '@/components/ui/Label'
+import { Badge } from '@/components/ui/Badge'
 import { useTranslation } from 'react-i18next'
 import { MachineIdService } from '@/services/MachineIdService'
 import { usePlatformStore } from '@/stores/usePlatformStore'
@@ -42,7 +43,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from '@/components/ui/Dialog'
 import {
   Alert,
   AlertDescription,
@@ -77,7 +78,7 @@ export function MachineId() {
       const machineId = await machineIdService.getMachineId()
       setCurrentMachineId(machineId)
     } catch (error) {
-      console.error('Failed to load machine ID:', error)
+      logError('Failed to load machine ID:', error)
     }
   }
 
@@ -101,7 +102,7 @@ export function MachineId() {
 
       setBindings(bindingsList)
     } catch (error) {
-      console.error('Failed to load bindings:', error)
+      logError('Failed to load bindings:', error)
     }
   }
 
@@ -118,7 +119,7 @@ export function MachineId() {
       setNewMachineId(newId)
       setEditMode(true)
     } catch (error) {
-      console.error('Failed to generate machine ID:', error)
+      logError('Failed to generate machine ID:', error)
     }
   }
 
@@ -133,7 +134,7 @@ export function MachineId() {
       setEditMode(false)
       setNewMachineId('')
     } catch (error) {
-      console.error('Failed to set machine ID:', error)
+      logError('Failed to set machine ID:', error)
     } finally {
       setLoading(false)
     }
@@ -163,7 +164,7 @@ export function MachineId() {
       setUnbindDialogOpen(false)
       setSelectedBinding(null)
     } catch (error) {
-      console.error('Failed to unbind machine ID:', error)
+      logError('Failed to unbind machine ID:', error)
     } finally {
       setLoading(false)
     }

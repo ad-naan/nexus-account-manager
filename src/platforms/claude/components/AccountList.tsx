@@ -1,12 +1,13 @@
-import { useState, useMemo } from 'react'
+import { logError } from '@/lib/logger'
+import { useState, useMemo, useDeferredValue } from 'react'
 import { AddAccountDialog } from './AddAccountDialog'
 import { EditAccountDialog } from './EditAccountDialog'
 import { ExportDialog } from '@/components/dialogs/ExportDialog'
-import { AccountCard } from '@/components/accounts/AccountCard'
+import { ClaudeAccountCard } from './ClaudeAccountCard'
 import { AccountTable } from '@/components/accounts/AccountTable'
 import { AccountSearch } from '@/components/accounts/AccountSearch'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
 import { usePlatformStore } from '@/stores/usePlatformStore'
 import { useTranslation } from 'react-i18next'
 import { Download, LayoutGrid, List, Search } from 'lucide-react'
@@ -26,6 +27,9 @@ export function ClaudeAccountList() {
   const [editOpen, setEditOpen] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // 性能优化：使用 useDeferredValue 延迟搜索查询，避免输入卡顿
+  const deferredSearchQuery = useDeferredValue(searchQuery)
 
   const claudeAccounts = useMemo(
     () => accounts.filter((acc): acc is ClaudeAccount => acc.platform === 'claude'),
@@ -33,15 +37,15 @@ export function ClaudeAccountList() {
   )
 
   const filteredAccounts = useMemo(() => {
-    if (!searchQuery.trim()) return claudeAccounts
+    if (!deferredSearchQuery.trim()) return claudeAccounts
 
-    const query = searchQuery.toLowerCase().trim()
+    const query = deferredSearchQuery.toLowerCase().trim()
     return claudeAccounts.filter((account) => {
       const email = account.email?.toLowerCase() || ''
       const name = account.name?.toLowerCase() || ''
       return email.includes(query) || name.includes(query)
     })
-  }, [claudeAccounts, searchQuery])
+  }, [claudeAccounts, deferredSearchQuery])
 
   const setSwitchAccount = async (account: Account) => {
     if (account.platform !== 'claude') return
@@ -76,10 +80,8 @@ export function ClaudeAccountList() {
         isActive: true,
         lastUsedAt: Date.now()
       })
-      
-      toast.success(t('claude.switchSuccess', `Switched to ${account.email || account.name || 'Claude account'}`))
     } catch (error: any) {
-      console.error('Failed to switch Claude account:', error)
+      logError('Failed to switch Claude account:', error)
       toast.error(t('claude.errors.switchFailed', `Failed to switch account: ${error.message || error}`))
     } finally {
       setIsSwitching(false)
@@ -181,12 +183,12 @@ export function ClaudeAccountList() {
           {viewMode === 'grid' ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredAccounts.map((account) => (
-                <AccountCard
+                <ClaudeAccountCard
                   key={account.id}
                   account={account}
+                  onSwitch={() => setSwitchAccount(account)}
                   onExport={() => setExportOpen(true)}
-                  onSwitch={(account) => setSwitchAccount(account)}
-                  onEdit={(account) => setEdit(account)}
+                  onEdit={() => setEdit(account)}
                 />
               ))}
             </div>

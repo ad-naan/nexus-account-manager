@@ -1,3 +1,4 @@
+import { logInfo } from '@/lib/logger'
 import { BaseAccount } from '@/types/platform'
 
 /**
@@ -30,16 +31,16 @@ export abstract class BaseAccountService implements IAccountService {
 
   // 通用方法：默认实现，子类可覆盖
   async refreshToken(account: BaseAccount): Promise<BaseAccount> {
-    console.log(`[${this.platformId}] Default refresh token implementation`)
+    logInfo(`[${this.platformId}] Default refresh token implementation`)
     return account
   }
 
   async getQuota(_account: BaseAccount): Promise<{ used: number; total: number }> {
-    console.log(`[${this.platformId}] Default quota implementation`)
+    logInfo(`[${this.platformId}] Default quota implementation`)
     return { used: 0, total: 100 }
   }
 
   async switchAccount(account: BaseAccount): Promise<void> {
-    console.log(`[${this.platformId}] Switching to account: ${account.name}`)
+    logInfo(`[${this.platformId}] Switching to account: ${account.name}`)
   }
 }

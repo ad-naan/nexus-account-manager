@@ -4,9 +4,10 @@
  * 专用于 Kiro IDE 平台的账号添加
  */
 
+import { logError } from '@/lib/logger'
 import { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/Dialog'
+import { Button } from '@/components/ui/Button'
 import { Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { usePlatformStore } from '@/stores/usePlatformStore'
@@ -32,7 +33,7 @@ export function AddAccountDialog() {
 
     // 添加失败回调
     const handleError = (error: string) => {
-        console.error('Add account error:', error)
+        logError('Add account error:', error)
     }
 
     // 关闭对话框

@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/Button'
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { invoke } from '@tauri-apps/api/core'
@@ -17,8 +17,7 @@ type Status = 'idle' | 'waiting' | 'success' | 'error'
 type Provider = 'Google' | 'Github'
 
 export function SocialMethod({ onSuccess, onError, onClose }: AddMethodProps) {
-    const { i18n } = useTranslation()
-    const isEn = i18n.language === 'en'
+    const { t } = useTranslation()
 
     const [status, setStatus] = useState<Status>('idle')
     const [message, setMessage] = useState('')
@@ -27,20 +26,52 @@ export function SocialMethod({ onSuccess, onError, onClose }: AddMethodProps) {
     const handleLogin = async (selectedProvider: Provider) => {
         setProvider(selectedProvider)
         setStatus('waiting')
-        setMessage(isEn ? `Logging in with ${selectedProvider}...` : `正在使用 ${selectedProvider} 登录...`)
+        setMessage(t('platforms.kiro.auth.social.loggingIn', { provider: selectedProvider }))
 
         try {
-            const account = await invoke<KiroAccount>('kiro_social_login', {
+            const result = await invoke<any>('kiro_social_login', {
                 provider: selectedProvider
             })
 
+            // Transform backend account to frontend KiroAccount
+            const kiroAccount: KiroAccount = {
+                id: result.id,
+                platform: 'kiro',
+                email: result.email,
+                name: result.name,
+                isActive: false,
+                lastUsedAt: Date.now(),
+                createdAt: Date.now(),
+                idp: selectedProvider === 'Google' ? 'Google' : 'Github',
+                credentials: {
+                    accessToken: result.access_token,
+                    refreshToken: result.refresh_token,
+                    expiresAt: result.expires_in ? Date.now() + result.expires_in * 1000 : undefined,
+                    authMethod: 'social'
+                },
+                subscription: {
+                    type: result.quota?.subscription_type || 'Free',
+                    title: result.quota?.subscription_title
+                },
+                usage: {
+                    current: result.quota?.current || 0,
+                    limit: result.quota?.limit || 25,
+                    percentUsed: result.quota?.limit > 0
+                        ? result.quota.current / result.quota.limit
+                        : 0,
+                    lastUpdated: Date.now()
+                },
+                status: 'active',
+                lastCheckedAt: Date.now()
+            }
+
             setStatus('success')
-            setMessage(isEn ? 'Login successful!' : '登录成功！')
-            onSuccess(account)
+            setMessage(t('platforms.kiro.auth.social.loginSuccess'))
+            onSuccess(kiroAccount)
             setTimeout(onClose, 1000)
         } catch (e: any) {
             setStatus('error')
-            setMessage(e.message || (isEn ? 'Login failed' : '登录失败'))
+            setMessage(e.message || t('platforms.kiro.auth.social.loginFailed'))
             onError(e.message)
         }
     }

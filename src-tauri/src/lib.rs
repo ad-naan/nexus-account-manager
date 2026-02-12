@@ -6,11 +6,13 @@ use commands::*;
 use core::Storage;
 use std::sync::Mutex;
 use tauri::{Manager, Emitter, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
+use utils::logger::{log_info, log_error};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             let _ = app.emit("single-instance", args.clone());
@@ -70,7 +72,7 @@ pub fn run() {
             // Initialize storage
             let storage = Storage::load(&app.handle())
                 .unwrap_or_else(|e| {
-                    eprintln!("Failed to load storage: {}", e);
+                    log_error(&format!("Failed to load storage: {}", e));
                     Storage::new()
                 });
             
@@ -104,11 +106,11 @@ pub fn run() {
                             if let Some(window) = app.get_webview_window("main") {
                                 let _ = window.show();
                                 let _ = window.set_focus();
-                                println!("Window shown from tray menu");
+                                log_info("Window shown from tray menu");
                             }
                         }
                         id if id == quit_id => {
-                            println!("Quit from tray menu");
+                            log_info("Quit from tray menu");
                             app.exit(0);
                         }
                         _ => {}
@@ -120,7 +122,7 @@ pub fn run() {
                         if let Some(window) = app.get_webview_window("main") {
                             let _ = window.show();
                             let _ = window.set_focus();
-                            println!("Window shown from tray click");
+                            log_info("Window shown from tray click");
                         }
                     }
                 })
@@ -131,7 +133,7 @@ pub fn run() {
                 let window_clone = window.clone();
                 window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        println!("Close requested - hiding window and running in background");
+                        log_info("Close requested - hiding window");
                         api.prevent_close();
                         let _ = window_clone.hide();
                     }
@@ -177,9 +179,17 @@ pub fn run() {
             kiro::kiro_verify_credentials,
             kiro::kiro_social_login,
             kiro::switch_kiro_account,
+            kiro::open_url_in_private_mode,
             // Claude 命令
             claude::switch_claude_account,
             claude::get_claude_config,
+            claude::verify_claude_api_key,
+            // Codex 命令
+            codex::switch_codex_account,
+            codex::get_codex_config,
+            // Gemini 命令
+            gemini::switch_gemini_account,
+            gemini::get_gemini_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use crate::core::oauth;
+use crate::utils::logger::log_error;
 
 const QUOTA_API_URL: &str = "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels";
 const CLOUD_CODE_BASE_URL: &str = "https://daily-cloudcode-pa.sandbox.googleapis.com";
@@ -90,7 +91,7 @@ pub async fn fetch_project_id(access_token: &str) -> (Option<String>, Option<Str
                 }
             }
         }
-        Err(e) => eprintln!("loadCodeAssist error: {}", e),
+        Err(e) => log_error(&format!("loadCodeAssist error: {}", e)),
     }
     
     (None, None)

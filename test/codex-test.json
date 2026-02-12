@@ -1,7 +1,6 @@
 {
   "env": {
-    "OPENAI_API_KEY": "sk-proj-xxxxxxxxxxxxxxxxxxxxx",
-    "OPENAI_ORGANIZATION": "org-xxxxxxxxxx",
+    "OPENAI_API_KEY": "sk-xxxxxxxxxxxxxxxxxxxxx",
     "OPENAI_BASE_URL": "https://api.openai.com/v1"
   }
 }

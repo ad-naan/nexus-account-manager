@@ -87,3 +87,61 @@ pub async fn get_claude_config() -> Result<Value, String> {
     
     Ok(config)
 }
+
+/// Verify Claude API Key
+#[tauri::command]
+pub async fn verify_claude_api_key(api_key: String, base_url: String) -> Result<Value, String> {
+    use crate::utils::logger::log_info;
+
+    log_info("Verifying Claude API key...");
+
+    let client = reqwest::Client::new();
+
+    // 去掉结尾的 /
+    let clean_base = base_url.trim_end_matches('/');
+
+    // 拼接完整 URL
+    let url = format!("{}/v1/messages", clean_base);
+
+    let response = client
+        .post(&url)
+        .header("x-api-key", &api_key)
+        .header("anthropic-version", "2023-06-01")
+        .header("Content-Type", "application/json")
+        .json(&json!({
+            "model": "claude-3-haiku-20240307",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_tokens": 10
+        }))
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
+
+    let status = response.status();
+    let body = response.text().await
+        .map_err(|e| format!("Failed to read response: {}", e))?;
+
+    if status.is_success() {
+        log_info("API key verification successful");
+        Ok(json!({
+            "valid": true,
+            "message": "API key is valid"
+        }))
+    } else {
+        log_info(&format!("API key verification failed: {}", status));
+
+        let error_msg = if let Ok(error_json) = serde_json::from_str::<Value>(&body) {
+            error_json["error"]["message"]
+                .as_str()
+                .unwrap_or("Invalid API key")
+                .to_string()
+        } else {
+            "Invalid API key".to_string()
+        };
+
+        Ok(json!({
+            "valid": false,
+            "message": error_msg
+        }))
+    }
+}

@@ -6,7 +6,7 @@ import { StatCard } from '@/components/dashboard/StatCard'
 import { QuotaCard } from '@/components/dashboard/QuotaCard'
 import { SubscriptionCard } from '@/components/dashboard/SubscriptionCard'
 import { Users, Activity, Layers, ArrowRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/Button'
 import { AntigravityAccount, KiroAccount } from '@/types/account'
 
 export function Dashboard() {
