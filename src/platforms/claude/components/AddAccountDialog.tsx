@@ -52,7 +52,7 @@ export function AddAccountDialog() {
                 </DialogHeader>
 
                 {/* JSON 导入方式 - 可滚动区域 */}
-                <div className="flex-1 overflow-y-auto pr-2 -mr-2">
+                <div className="flex-1 overflow-y-scroll pr-2 -mr-2">
                     <JsonMethod
                         platform="claude"
                         onSuccess={handleSuccess}

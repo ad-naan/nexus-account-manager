@@ -17,7 +17,7 @@ import type { Account } from '@/types/platform'
 
 export function AddAccountDialog() {
     const [open, setOpen] = useState(false)
-    const [selectedMethod, setSelectedMethod] = useState<string | null>(null)
+    const [selectedMethod, setSelectedMethod] = useState<string | null>('oauth')
     const { t } = useTranslation()
     const { addAccount, loadAllAccounts } = usePlatformStore()
 

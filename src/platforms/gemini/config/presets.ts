@@ -22,6 +22,19 @@ export const geminiProviderPresets: GeminiProviderPreset[] = [
     },
   },
   {
+    id: 'custom',
+    name: 'Custom Provider',
+    category: 'custom',
+    websiteUrl: '',
+    description: '自定义供应商配置',
+    config: {
+      env: {
+        GOOGLE_GEMINI_BASE_URL: '',
+        GEMINI_API_KEY: '',
+      },
+    },
+  },
+  {
     id: 'packycode',
     name: 'PackyCode',
     category: 'third_party',
@@ -117,19 +130,6 @@ export const geminiProviderPresets: GeminiProviderPreset[] = [
         GOOGLE_GEMINI_BASE_URL: 'https://openrouter.ai/api',
         GEMINI_API_KEY: '',
         GEMINI_MODEL: 'gemini-3-pro-preview',
-      },
-    },
-  },
-  {
-    id: 'custom',
-    name: 'Custom Provider',
-    category: 'custom',
-    websiteUrl: '',
-    description: '自定义供应商配置',
-    config: {
-      env: {
-        GOOGLE_GEMINI_BASE_URL: '',
-        GEMINI_API_KEY: '',
       },
     },
   },

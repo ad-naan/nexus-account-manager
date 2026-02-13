@@ -141,36 +141,78 @@ export interface ClaudeAccount extends BaseAccount {
 }
 
 // --- Codex Specifics ---
-export interface CodexEnvConfig {
-  env: {
-    OPENAI_API_KEY?: string
-    OPENAI_BASE_URL?: string
-    OPENAI_MODEL?: string
-    [key: string]: any
+export interface AuthJson {
+  OPENAI_API_KEY?: string
+  [key: string]: any
+}
+
+export interface ConfigToml {
+  model_provider?: string
+  model?: string
+  model_reasoning_effort?: string
+  disable_response_storage?: boolean
+  model_providers?: {
+    [key: string]: {
+      name?: string
+      base_url?: string
+      wire_api?: string
+      requires_openai_auth?: boolean
+      [key: string]: any
+    }
   }
+  [key: string]: any
+}
+
+export interface CodexConfig {
+  auth: AuthJson
+  config: ConfigToml
+  [key: string]: any
 }
 
 export interface CodexAccount extends BaseAccount {
     platform: 'codex';
     providerId?: string;  // 关联的 Provider ID
-    config: CodexEnvConfig;
+    config: CodexConfig;
 }
 
 // --- Gemini Specifics ---
-export interface GeminiEnvConfig {
-  env: {
-    GEMINI_API_KEY?: string
-    GOOGLE_API_KEY?: string
-    GEMINI_MODEL?: string
-    GOOGLE_GEMINI_BASE_URL?: string
+export interface EnvConfig {
+  GOOGLE_GEMINI_BASE_URL?: string
+  GEMINI_API_KEY?: string
+  GEMINI_MODEL?: string
+  [key: string]: any
+}
+
+export interface ConfigJson {
+  [key: string]: any
+}
+
+export interface SettingsJson {
+  ide?: {
+    enabled?: boolean
     [key: string]: any
   }
+  security?: {
+    auth?: {
+      selectedType?: string
+      [key: string]: any
+    }
+    [key: string]: any
+  }
+  [key: string]: any
+}
+
+export interface GeminiConfig {
+  env?: EnvConfig
+  config: ConfigJson
+  settings: SettingsJson
+  [key: string]: any
 }
 
 export interface GeminiAccount extends BaseAccount {
     platform: 'gemini';
     providerId?: string;  // 关联的 Provider ID
-    config: GeminiEnvConfig;
+    config: GeminiConfig;
 }
 
 // --- Union Type ---

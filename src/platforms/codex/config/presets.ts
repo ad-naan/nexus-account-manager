@@ -16,8 +16,48 @@ export const codexProviderPresets: CodexProviderPreset[] = [
     icon: 'openai',
     iconColor: '#10A37F',
     config: {
-      env: {
+      auth: {
         OPENAI_API_KEY: '',
+      },
+      config: {
+        model_provider: 'openai',
+        model: 'gpt-5-codex',
+        model_reasoning_effort: 'high',
+        disable_response_storage: false,
+        model_providers: {
+          openai: {
+            name: 'openai',
+            base_url: 'https://api.openai.com/v1',
+            wire_api: 'responses',
+            requires_openai_auth: true,
+          },
+        },
+      },
+    },
+  },
+  {
+    id: 'custom',
+    name: 'Custom Provider',
+    category: 'custom',
+    websiteUrl: '',
+    description: '自定义供应商配置',
+    config: {
+      auth: {
+        OPENAI_API_KEY: '',
+      },
+      config: {
+        model_provider: 'custom',
+        model: 'gpt-5-codex',
+        model_reasoning_effort: 'high',
+        disable_response_storage: false,
+        model_providers: {
+          custom: {
+            name: 'custom',
+            base_url: '',
+            wire_api: 'responses',
+            requires_openai_auth: true,
+          },
+        },
       },
     },
   },
@@ -30,10 +70,22 @@ export const codexProviderPresets: CodexProviderPreset[] = [
     icon: 'azure',
     iconColor: '#0078D4',
     config: {
-      env: {
-        OPENAI_BASE_URL: 'https://YOUR_RESOURCE_NAME.openai.azure.com/openai',
+      auth: {
         OPENAI_API_KEY: '',
-        OPENAI_MODEL: 'gpt-5.2',
+      },
+      config: {
+        model_provider: 'azure_openai',
+        model: 'gpt-5.2',
+        model_reasoning_effort: 'high',
+        disable_response_storage: false,
+        model_providers: {
+          azure_openai: {
+            name: 'azure_openai',
+            base_url: 'https://YOUR_RESOURCE_NAME.openai.azure.com/openai',
+            wire_api: 'responses',
+            requires_openai_auth: true,
+          },
+        },
       },
     },
     endpointCandidates: ['https://YOUR_RESOURCE_NAME.openai.azure.com/openai'],
@@ -48,10 +100,22 @@ export const codexProviderPresets: CodexProviderPreset[] = [
     icon: 'aihubmix',
     iconColor: '#006FFB',
     config: {
-      env: {
-        OPENAI_BASE_URL: 'https://aihubmix.com/v1',
+      auth: {
         OPENAI_API_KEY: '',
-        OPENAI_MODEL: 'gpt-5.2',
+      },
+      config: {
+        model_provider: 'aihubmix',
+        model: 'gpt-5.2',
+        model_reasoning_effort: 'high',
+        disable_response_storage: false,
+        model_providers: {
+          aihubmix: {
+            name: 'aihubmix',
+            base_url: 'https://aihubmix.com/v1',
+            wire_api: 'responses',
+            requires_openai_auth: true,
+          },
+        },
       },
     },
     endpointCandidates: ['https://aihubmix.com/v1', 'https://api.aihubmix.com/v1'],
@@ -65,10 +129,22 @@ export const codexProviderPresets: CodexProviderPreset[] = [
     description: 'DMXAPI 聚合平台',
     isPartner: true,
     config: {
-      env: {
-        OPENAI_BASE_URL: 'https://www.dmxapi.cn/v1',
+      auth: {
         OPENAI_API_KEY: '',
-        OPENAI_MODEL: 'gpt-5.2',
+      },
+      config: {
+        model_provider: 'dmxapi',
+        model: 'gpt-5.2',
+        model_reasoning_effort: 'high',
+        disable_response_storage: false,
+        model_providers: {
+          dmxapi: {
+            name: 'dmxapi',
+            base_url: 'https://www.dmxapi.cn/v1',
+            wire_api: 'responses',
+            requires_openai_auth: true,
+          },
+        },
       },
     },
     endpointCandidates: ['https://www.dmxapi.cn/v1'],
@@ -83,10 +159,22 @@ export const codexProviderPresets: CodexProviderPreset[] = [
     icon: 'packycode',
     isPartner: true,
     config: {
-      env: {
-        OPENAI_BASE_URL: 'https://www.packyapi.com/v1',
+      auth: {
         OPENAI_API_KEY: '',
-        OPENAI_MODEL: 'gpt-5.2',
+      },
+      config: {
+        model_provider: 'packycode',
+        model: 'gpt-5.2',
+        model_reasoning_effort: 'high',
+        disable_response_storage: false,
+        model_providers: {
+          packycode: {
+            name: 'packycode',
+            base_url: 'https://www.packyapi.com/v1',
+            wire_api: 'responses',
+            requires_openai_auth: true,
+          },
+        },
       },
     },
     endpointCandidates: ['https://www.packyapi.com/v1', 'https://api-slb.packyapi.com/v1'],
@@ -102,10 +190,22 @@ export const codexProviderPresets: CodexProviderPreset[] = [
     iconColor: '#000000',
     isPartner: true,
     config: {
-      env: {
-        OPENAI_BASE_URL: 'https://api.cubence.com/v1',
+      auth: {
         OPENAI_API_KEY: '',
-        OPENAI_MODEL: 'gpt-5.2',
+      },
+      config: {
+        model_provider: 'cubence_codex',
+        model: 'gpt-5-codex',
+        model_reasoning_effort: 'high',
+        disable_response_storage: true,
+        model_providers: {
+          cubence_codex: {
+            name: 'cubence_codex',
+            base_url: 'https://api.cubence.com/v1',
+            wire_api: 'responses',
+            requires_openai_auth: true,
+          },
+        },
       },
     },
     endpointCandidates: [
@@ -126,10 +226,22 @@ export const codexProviderPresets: CodexProviderPreset[] = [
     iconColor: '#5B7FFF',
     isPartner: true,
     config: {
-      env: {
-        OPENAI_BASE_URL: 'https://api.aigocode.com',
+      auth: {
         OPENAI_API_KEY: '',
-        OPENAI_MODEL: 'gpt-5.2',
+      },
+      config: {
+        model_provider: 'aigocode',
+        model: 'gpt-5.2',
+        model_reasoning_effort: 'high',
+        disable_response_storage: false,
+        model_providers: {
+          aigocode: {
+            name: 'aigocode',
+            base_url: 'https://api.aigocode.com',
+            wire_api: 'responses',
+            requires_openai_auth: true,
+          },
+        },
       },
     },
   },
@@ -144,10 +256,22 @@ export const codexProviderPresets: CodexProviderPreset[] = [
     iconColor: '#E96B2C',
     isPartner: true,
     config: {
-      env: {
-        OPENAI_BASE_URL: 'https://right.codes/codex/v1',
+      auth: {
         OPENAI_API_KEY: '',
-        OPENAI_MODEL: 'gpt-5.2',
+      },
+      config: {
+        model_provider: 'rightcode',
+        model: 'gpt-5.2',
+        model_reasoning_effort: 'high',
+        disable_response_storage: false,
+        model_providers: {
+          rightcode: {
+            name: 'rightcode',
+            base_url: 'https://right.codes/codex/v1',
+            wire_api: 'responses',
+            requires_openai_auth: true,
+          },
+        },
       },
     },
   },
@@ -162,10 +286,22 @@ export const codexProviderPresets: CodexProviderPreset[] = [
     iconColor: '#000000',
     isPartner: true,
     config: {
-      env: {
-        OPENAI_BASE_URL: 'https://api.aicodemirror.com/api/codex/backend-api/codex',
+      auth: {
         OPENAI_API_KEY: '',
-        OPENAI_MODEL: 'gpt-5.2',
+      },
+      config: {
+        model_provider: 'aicodemirror',
+        model: 'gpt-5.2',
+        model_reasoning_effort: 'high',
+        disable_response_storage: false,
+        model_providers: {
+          aicodemirror: {
+            name: 'aicodemirror',
+            base_url: 'https://api.aicodemirror.com/api/codex/backend-api/codex',
+            wire_api: 'responses',
+            requires_openai_auth: true,
+          },
+        },
       },
     },
     endpointCandidates: [
@@ -183,23 +319,22 @@ export const codexProviderPresets: CodexProviderPreset[] = [
     icon: 'openrouter',
     iconColor: '#6566F1',
     config: {
-      env: {
-        OPENAI_BASE_URL: 'https://openrouter.ai/api/v1',
+      auth: {
         OPENAI_API_KEY: '',
-        OPENAI_MODEL: 'openai/gpt-4-turbo',
       },
-    },
-  },
-  {
-    id: 'custom',
-    name: 'Custom Provider',
-    category: 'custom',
-    websiteUrl: '',
-    description: '自定义供应商配置',
-    config: {
-      env: {
-        OPENAI_BASE_URL: '',
-        OPENAI_API_KEY: '',
+      config: {
+        model_provider: 'openrouter',
+        model: 'openai/gpt-4-turbo',
+        model_reasoning_effort: 'high',
+        disable_response_storage: false,
+        model_providers: {
+          openrouter: {
+            name: 'openrouter',
+            base_url: 'https://openrouter.ai/api/v1',
+            wire_api: 'responses',
+            requires_openai_auth: true,
+          },
+        },
       },
     },
   },

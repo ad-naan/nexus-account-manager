@@ -9,26 +9,16 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Loader2, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { geminiProviderPresets } from '../config/presets'
 import { ProviderCarousel, ProviderInfo } from '@/components/common/ProviderCarousel'
 import type { AddMethodProps } from '@/types/platform'
-import type { GeminiAccount } from '@/types/account'
+import type { GeminiAccount, EnvConfig, ConfigJson, SettingsJson, GeminiConfig } from '@/types/account'
 
 type Status = 'idle' | 'processing' | 'success' | 'error'
-
-interface GeminiConfig {
-  env: {
-    GEMINI_API_KEY?: string
-    GOOGLE_API_KEY?: string
-    GOOGLE_GEMINI_BASE_URL?: string
-    GEMINI_MODEL?: string
-    [key: string]: any
-  }
-  [key: string]: any
-}
 
 interface JsonMethodProps extends AddMethodProps {
   initialData?: string
@@ -41,7 +31,7 @@ export function JsonMethod({ onSuccess, onError, onClose, initialData, isEdit = 
 
   const [status, setStatus] = useState<Status>('idle')
   const [message, setMessage] = useState('')
-  const [selectedPresetId, setSelectedPresetId] = useState<string>('')
+  const [selectedPresetId, setSelectedPresetId] = useState<string>('custom')
   const [baseUrl, setBaseUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -50,16 +40,36 @@ export function JsonMethod({ onSuccess, onError, onClose, initialData, isEdit = 
   // 模型配置
   const [model, setModel] = useState('')
 
+  // 配置编辑器
+  const [showEnvEditor, setShowEnvEditor] = useState(isEdit ? false : true)
+  const [showConfigEditor, setShowConfigEditor] = useState(false)
+  const [showSettingsEditor, setShowSettingsEditor] = useState(false)
+  const [envValue, setEnvValue] = useState('')
+  const [configValue, setConfigValue] = useState('')
+  const [settingsValue, setSettingsValue] = useState('')
+  const [envError, setEnvError] = useState('')
+  const [configError, setConfigError] = useState('')
+  const [settingsError, setSettingsError] = useState('')
+  const [envKey, setEnvKey] = useState(0)
+  const [configKey, setConfigKey] = useState(0)
+  const [settingsKey, setSettingsKey] = useState(0)
+
   // 初始化编辑模式数据
   useEffect(() => {
     if (initialData && isEdit) {
       try {
         const data = JSON.parse(initialData)
-        if (data.config?.env) {
-          setBaseUrl(data.config.env.GOOGLE_GEMINI_BASE_URL || '')
-          const key = data.config.env.GEMINI_API_KEY || data.config.env.GOOGLE_API_KEY
-          setApiKey(key || '')
-          setModel(data.config.env.GEMINI_MODEL || '')
+        if (data.config) {
+          // 从 env 读取
+          if (data.config.env) {
+            setBaseUrl(data.config.env.GOOGLE_GEMINI_BASE_URL || '')
+            setApiKey(data.config.env.GEMINI_API_KEY || '')
+            setModel(data.config.env.GEMINI_MODEL || '')
+          }
+          // 从 settings 读取
+          if (data.config.settings) {
+            setSettingsValue(JSON.stringify(data.config.settings, null, 2))
+          }
         }
       } catch (e) {
         logError('Failed to parse initial data:', e)
@@ -67,15 +77,128 @@ export function JsonMethod({ onSuccess, onError, onClose, initialData, isEdit = 
     }
   }, [initialData, isEdit])
 
+  // 当表单字段变化时，同步更新 env、config 和 settings（仅在编辑器展开时）
+  useEffect(() => {
+    if (!showEnvEditor && !showConfigEditor && !showSettingsEditor) return
+    
+    try {
+      // 构建 .env 格式文本
+      const envLines: string[] = []
+      if (baseUrl.trim()) envLines.push(`GOOGLE_GEMINI_BASE_URL=${baseUrl.trim()}`)
+      if (apiKey.trim()) envLines.push(`GEMINI_API_KEY=${apiKey.trim()}`)
+      if (model.trim()) envLines.push(`GEMINI_MODEL=${model.trim()}`)
+      setEnvValue(envLines.join('\n'))
+      setEnvKey(prev => prev + 1)
+
+      // 构建 config (可以为空对象或包含其他配置)
+      const config: ConfigJson = {}
+      setConfigValue(JSON.stringify(config, null, 2))
+      setConfigKey(prev => prev + 1)
+
+      // 构建 settings (默认配置)
+      const settings: SettingsJson = {
+        ide: {
+          enabled: true,
+        },
+        security: {
+          auth: {
+            selectedType: 'gemini-api-key',
+          },
+        },
+      }
+      setSettingsValue(JSON.stringify(settings, null, 2))
+      setSettingsKey(prev => prev + 1)
+
+      setEnvError('')
+      setConfigError('')
+      setSettingsError('')
+    } catch (e: any) {
+      logError('Failed to sync config:', e)
+    }
+  }, [baseUrl, apiKey, model, showEnvEditor, showConfigEditor, showSettingsEditor])
+
+  // 解析 .env 格式文本
+  const parseEnvText = (text: string): EnvConfig => {
+    const env: EnvConfig = {}
+    const lines = text.split('\n')
+    
+    lines.forEach(line => {
+      line = line.trim()
+      if (!line || line.startsWith('#')) return
+      
+      const equalIndex = line.indexOf('=')
+      if (equalIndex > 0) {
+        const key = line.substring(0, equalIndex).trim()
+        const value = line.substring(equalIndex + 1).trim()
+        env[key] = value
+      }
+    })
+    
+    return env
+  }
+
+  // 应用 env 配置
+  const handleApplyEnv = () => {
+    try {
+      const parsed = parseEnvText(envValue)
+      setBaseUrl(parsed.GOOGLE_GEMINI_BASE_URL || '')
+      setApiKey(parsed.GEMINI_API_KEY || '')
+      setModel(parsed.GEMINI_MODEL || '')
+      setEnvError('')
+      setMessage(isEn ? 'Environment variables applied' : '环境变量已应用')
+      setStatus('success')
+      setTimeout(() => {
+        setStatus('idle')
+        setMessage('')
+      }, 2000)
+    } catch (e: any) {
+      setEnvError(e.message || (isEn ? 'Invalid .env format' : '.env 格式无效'))
+    }
+  }
+
+  // 应用 config 配置
+  const handleApplyConfig = () => {
+    try {
+      JSON.parse(configValue) as ConfigJson
+      setConfigError('')
+      setMessage(isEn ? 'Config applied successfully' : '配置应用成功')
+      setStatus('success')
+      setTimeout(() => {
+        setStatus('idle')
+        setMessage('')
+      }, 2000)
+    } catch (e: any) {
+      setConfigError(e.message || (isEn ? 'Invalid JSON format' : 'JSON 格式无效'))
+    }
+  }
+
+  // 应用 settings 配置
+  const handleApplySettings = () => {
+    try {
+      JSON.parse(settingsValue) as SettingsJson
+      setSettingsError('')
+      setMessage(isEn ? 'Settings applied successfully' : '设置应用成功')
+      setStatus('success')
+      setTimeout(() => {
+        setStatus('idle')
+        setMessage('')
+      }, 2000)
+    } catch (e: any) {
+      setSettingsError(e.message || (isEn ? 'Invalid JSON format' : 'JSON 格式无效'))
+    }
+  }
+
   // 当选择预设时，自动填充配置
   const handlePresetChange = (presetId: string) => {
     setSelectedPresetId(presetId)
     const preset = geminiProviderPresets.find((p) => p.id === presetId)
-    if (preset) {
-      setBaseUrl(preset.config.env.GOOGLE_GEMINI_BASE_URL || '')
-      // 自动填充预设的模型配置
-      setModel(preset.config.env.GEMINI_MODEL || '')
-      // 不自动填充 API Key，让用户手动输入
+    if (preset && preset.config) {
+      // 从预设的 env 中读取
+      if (preset.config.env) {
+        setBaseUrl(preset.config.env.GOOGLE_GEMINI_BASE_URL || '')
+        setModel(preset.config.env.GEMINI_MODEL || '')
+        // 不自动填充 API Key
+      }
     }
   }
 
@@ -91,24 +214,11 @@ export function JsonMethod({ onSuccess, onError, onClose, initialData, isEdit = 
 
     try {
       const selectedPreset = geminiProviderPresets.find((p) => p.id === selectedPresetId)
-      
-      // 构建配置对象
       const config: GeminiConfig = {
-        env: {
-          ...(selectedPreset?.config.env || {}),
-          GOOGLE_GEMINI_BASE_URL: baseUrl.trim() || undefined,
-          GEMINI_API_KEY: apiKey.trim(),
-          // 添加模型配置（如果用户填写了）
-          GEMINI_MODEL: model.trim() || undefined,
-        },
+        env: JSON.parse(envValue || '{}'),
+        config: JSON.parse(configValue || '{}'),
+        settings: JSON.parse(settingsValue || '{}'),
       }
-
-      // 移除空值
-      Object.keys(config.env).forEach(key => {
-        if (!config.env[key]) {
-          delete config.env[key]
-        }
-      })
 
       // 创建账号对象
       const account: GeminiAccount = {
@@ -268,6 +378,102 @@ export function JsonMethod({ onSuccess, onError, onClose, initialData, isEdit = 
               </div>
             )}
           </div>
+
+          {/* .env Editor */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowEnvEditor(!showEnvEditor)}
+                className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <span>{isEn ? 'Environment Variables (.env)' : '环境变量 (.env)'}</span>
+                <span className={cn("transition-transform", showEnvEditor && "rotate-180")}>▼</span>
+              </button>
+
+              {showEnvEditor && (
+                <div className="space-y-2">
+                  <Textarea
+                    key={envKey}
+                    defaultValue={envValue}
+                    onChange={(e) => setEnvValue(e.target.value)}
+                    onBlur={handleApplyEnv}
+                    className="font-mono text-xs min-h-[150px] resize-y"
+                    placeholder={isEn ? 'Edit environment variables...' : '编辑环境变量...'}
+                    disabled={status === 'processing'}
+                  />
+                  {envError && (
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-red-500/10 text-red-600 text-xs">
+                      <AlertCircle className="h-3 w-3 shrink-0" />
+                      <span>{envError}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+          {/* config.json Editor */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowConfigEditor(!showConfigEditor)}
+                className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <span>{isEn ? 'Configuration (config.json)' : '配置文件 (config.json)'}</span>
+                <span className={cn("transition-transform", showConfigEditor && "rotate-180")}>▼</span>
+              </button>
+
+              {showConfigEditor && (
+                <div className="space-y-2">
+                  <Textarea
+                    key={configKey}
+                    defaultValue={configValue}
+                    onChange={(e) => setConfigValue(e.target.value)}
+                    onBlur={handleApplyConfig}
+                    className="font-mono text-xs min-h-[150px] resize-y"
+                    placeholder={isEn ? 'Edit config.json...' : '编辑 config.json...'}
+                    disabled={status === 'processing'}
+                  />
+                  {configError && (
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-red-500/10 text-red-600 text-xs">
+                      <AlertCircle className="h-3 w-3 shrink-0" />
+                      <span>{configError}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+          {/* settings.json Editor */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowSettingsEditor(!showSettingsEditor)}
+                className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <span>{isEn ? 'Settings (settings.json)' : '设置 (settings.json)'}</span>
+                <span className={cn("transition-transform", showSettingsEditor && "rotate-180")}>▼</span>
+              </button>
+
+              {showSettingsEditor && (
+                <div className="space-y-2">
+                  <Textarea
+                    key={settingsKey}
+                    defaultValue={settingsValue}
+                    onChange={(e) => setSettingsValue(e.target.value)}
+                    onBlur={handleApplySettings}
+                    className="font-mono text-xs min-h-[200px] resize-y"
+                    placeholder={isEn ? 'Edit settings.json...' : '编辑 settings.json...'}
+                    disabled={status === 'processing'}
+                  />
+                  {settingsError && (
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-red-500/10 text-red-600 text-xs">
+                      <AlertCircle className="h-3 w-3 shrink-0" />
+                      <span>{settingsError}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
           <Button
             className="w-full"

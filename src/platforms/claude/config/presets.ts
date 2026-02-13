@@ -16,6 +16,20 @@ export const claudeProviderPresets: ClaudeProviderPreset[] = [
     iconColor: '#D4915D',
     config: {
       env: {
+        ANTHROPIC_BASE_URL: 'https://api.deepseek.com/v1',
+        ANTHROPIC_AUTH_TOKEN: '',
+      },
+    },
+  },
+  {
+    id: 'custom',
+    name: 'Custom Provider',
+    category: 'custom',
+    websiteUrl: '',
+    description: '自定义供应商配置',
+    config: {
+      env: {
+        ANTHROPIC_BASE_URL: '',
         ANTHROPIC_AUTH_TOKEN: '',
       },
     },
@@ -501,19 +515,6 @@ export const claudeProviderPresets: ClaudeProviderPreset[] = [
       'https://api.aicodemirror.com/api/claudecode',
       'https://api.claudecode.net.cn/api/claudecode',
     ],
-  },
-  {
-    id: 'custom',
-    name: 'Custom Provider',
-    category: 'custom',
-    websiteUrl: '',
-    description: '自定义供应商配置',
-    config: {
-      env: {
-        ANTHROPIC_BASE_URL: '',
-        ANTHROPIC_AUTH_TOKEN: '',
-      },
-    },
   },
 ]
 

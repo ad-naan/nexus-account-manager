@@ -1,3 +1,5 @@
+import { AuthJson, ConfigToml, ClaudeEnvConfig  } from './account'
+
 /**
  * Provider 预设配置类型定义
  * 从 cc-switch 提取的供应商管理功能
@@ -33,29 +35,15 @@ export interface ProviderPreset {
 
 // Claude Provider 预设
 export interface ClaudeProviderPreset extends ProviderPreset {
-  config: {
-    env: {
-      ANTHROPIC_API_KEY?: string
-      ANTHROPIC_AUTH_TOKEN?: string
-      ANTHROPIC_BASE_URL?: string
-      ANTHROPIC_MODEL?: string
-      ANTHROPIC_DEFAULT_HAIKU_MODEL?: string
-      ANTHROPIC_DEFAULT_SONNET_MODEL?: string
-      ANTHROPIC_DEFAULT_OPUS_MODEL?: string
-      [key: string]: any
-    }
-  }
+  config: ClaudeEnvConfig
 }
 
 // Codex Provider 预设
 export interface CodexProviderPreset extends ProviderPreset {
   config: {
-    env: {
-      OPENAI_API_KEY?: string
-      OPENAI_BASE_URL?: string
-      OPENAI_MODEL?: string
-      [key: string]: any
-    }
+    auth: AuthJson
+    config: ConfigToml
+    [key: string]: any
   }
 }
 

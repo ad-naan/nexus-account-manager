@@ -61,7 +61,7 @@ export function EditAccountDialog({ account, open, onClose }: EditAccountDialogP
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[600px] border-border bg-card text-card-foreground shadow-2xl">
+            <DialogContent className="sm:max-w-[600px] max-h-[85vh] flex flex-col border-border bg-card text-card-foreground shadow-2xl">
                 <DialogHeader>
                     <DialogTitle className="text-xl font-bold">
                         {t('platforms.gemini.editAccount', 'Edit Gemini Account')}
@@ -69,7 +69,7 @@ export function EditAccountDialog({ account, open, onClose }: EditAccountDialogP
                 </DialogHeader>
 
                 {/* JSON 编辑方式 */}
-                <div className="mt-4">
+                <div className="flex-1 overflow-y-scroll pr-2 -mr-2">
                     <JsonMethod
                         platform="gemini"
                         onSuccess={handleSuccess}
