@@ -126,7 +126,8 @@
         "type": "类型",
         "title": "标题",
         "region": "区域",
-        "unknownError": "未知错误"
+        "unknownError": "未知错误",
+        "notInstalled": "未安装"
     },
     "accounts": {
         "title": "账号管理",

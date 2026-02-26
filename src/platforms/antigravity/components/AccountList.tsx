@@ -10,6 +10,7 @@ import { usePlatformStore } from '@/stores/usePlatformStore'
 import { useTranslation } from 'react-i18next'
 import { AntigravityAccount } from '@/types/account'
 import { Download, LayoutGrid, List, Search } from 'lucide-react'
+import { usePlatformVersions } from '@/hooks/usePlatformVersions'
 
 type ViewMode = 'grid' | 'list'
 
@@ -19,9 +20,13 @@ export function AntigravityAccountList() {
   const [exportOpen, setExportOpen] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [searchQuery, setSearchQuery] = useState('')
+  const { versions } = usePlatformVersions()
   
   // 性能优化：使用 useDeferredValue 延迟搜索查询，避免输入卡顿
   const deferredSearchQuery = useDeferredValue(searchQuery)
+  
+  // 获取 Antigravity 平台版本信息
+  const antigravityVersion = versions.find(v => v.platform === 'antigravity')
 
   const antigravityAccounts = useMemo(
     () => accounts.filter((acc): acc is AntigravityAccount => acc.platform === 'antigravity'),
@@ -43,9 +48,22 @@ export function AntigravityAccountList() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
-            {t('platforms.antigravity.name')}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
+              {t('platforms.antigravity.name')}
+            </h2>
+            {antigravityVersion?.installed ? (
+              antigravityVersion.version ? (
+                <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded">
+                  v{antigravityVersion.version}
+                </span>
+              ) : null
+            ) : (
+              <span className="text-xs text-muted-foreground bg-destructive/10 text-destructive px-2 py-0.5 rounded">
+                {t('common.notInstalled')}
+              </span>
+            )}
+          </div>
           <p className="text-muted-foreground mt-2 text-lg font-light">
             {t('platforms.antigravity.description', 'Manage your Google/Anthropic AI service accounts')}
           </p>

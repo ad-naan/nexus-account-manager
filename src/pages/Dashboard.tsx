@@ -8,16 +8,24 @@ import { SubscriptionCard } from '@/components/dashboard/SubscriptionCard'
 import { Users, Activity, Layers, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AntigravityAccount, KiroAccount } from '@/types/account'
+import { usePlatformVersions } from '@/hooks/usePlatformVersions'
 
 export function Dashboard() {
   const accounts = usePlatformStore((state) => state.accounts)
   const navigate = useNavigate()
   const platforms = getAllPlatforms()
   const { t } = useTranslation()
+  const { versions } = usePlatformVersions()
 
   const activeAccounts = accounts.filter((a) => a.isActive).length
   const antigravityAccounts = accounts.filter((a): a is AntigravityAccount => a.platform === 'antigravity')
   const kiroAccounts = accounts.filter((a): a is KiroAccount => a.platform === 'kiro')
+
+  // 创建平台版本映射
+  const versionMap = versions.reduce((acc, v) => {
+    acc[v.platform] = v
+    return acc
+  }, {} as Record<string, { installed: boolean; version: string | null }>)
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-10">
@@ -87,6 +95,7 @@ export function Dashboard() {
           {platforms.map((platform) => {
             const Icon = platform.icon
             const platformAccounts = accounts.filter((a) => a.platform === platform.id)
+            const platformVersion = versionMap[platform.id]
 
             return (
               <div
@@ -103,7 +112,22 @@ export function Dashboard() {
                         <Icon className="h-6 w-6" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-xl tracking-tight text-foreground">{t(`platforms.${platform.id}.name`)}</h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-xl tracking-tight text-foreground">
+                            {t(`platforms.${platform.id}.name`)}
+                          </h3>
+                          {platformVersion?.installed ? (
+                            platformVersion.version ? (
+                              <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded">
+                                v{platformVersion.version}
+                              </span>
+                            ) : null
+                          ) : (
+                            <span className="text-xs text-muted-foreground bg-destructive/10 text-destructive px-2 py-0.5 rounded">
+                              {t('common.notInstalled')}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground mt-1">
                           {platformAccounts.length} {t('common.accounts')}
                         </p>

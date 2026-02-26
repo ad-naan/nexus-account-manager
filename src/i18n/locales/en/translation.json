@@ -126,7 +126,8 @@
         "type": "Type",
         "title": "Title",
         "region": "Region",
-        "unknownError": "Unknown error"
+        "unknownError": "Unknown error",
+        "notInstalled": "Not Installed"
     },
     "accounts": {
         "title": "Accounts",

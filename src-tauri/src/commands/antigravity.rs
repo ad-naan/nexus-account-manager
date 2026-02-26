@@ -337,3 +337,114 @@ pub async fn antigravity_switch_account(
         token_type: token_res.token_type,
     })
 }
+
+
+/// Get Antigravity platform version
+pub fn get_antigravity_version() -> Option<String> {
+    use crate::utils::logger::{log_debug, log_info};
+    use std::process::Command;
+    
+    log_debug("Checking Antigravity version");
+    
+    // 检查是否配置了 Antigravity 可执行文件
+    let exe_path = match crate::utils::config::load_app_config() {
+        Ok(config) => config.antigravity_executable?,
+        Err(_) => return None,
+    };
+    
+    // 尝试执行 antigravity --version
+    #[cfg(target_os = "windows")]
+    let output = {
+        Command::new("cmd")
+            .args(["/C", &format!("\"{}\" --version", exe_path)])
+            .output()
+    };
+    
+    #[cfg(not(target_os = "windows"))]
+    let output = {
+        Command::new("sh")
+            .arg("-c")
+            .arg(format!("'{}' --version", exe_path))
+            .output()
+    };
+    
+    match output {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            
+            log_info(&format!(
+                "Antigravity command executed - status: {}, stdout: '{}', stderr: '{}'", 
+                out.status, stdout, stderr
+            ));
+            
+            if out.status.success() {
+                let raw = if stdout.is_empty() { &stderr } else { &stdout };
+                if !raw.is_empty() {
+                    let version = extract_version(raw);
+                    log_debug(&format!("Antigravity version extracted: {}", version));
+                    return Some(version);
+                }
+            } else {
+                // 尝试使用 -v 参数
+                log_info("Trying with -v flag");
+                
+                #[cfg(target_os = "windows")]
+                let output_v = {
+                    Command::new("cmd")
+                        .args(["/C", &format!("\"{}\" -v", exe_path)])
+                        .output()
+                };
+                
+                #[cfg(not(target_os = "windows"))]
+                let output_v = {
+                    Command::new("sh")
+                        .arg("-c")
+                        .arg(format!("'{}' -v", exe_path))
+                        .output()
+                };
+                
+                if let Ok(out_v) = output_v {
+                    let stdout_v = String::from_utf8_lossy(&out_v.stdout).trim().to_string();
+                    let stderr_v = String::from_utf8_lossy(&out_v.stderr).trim().to_string();
+                    
+                    log_info(&format!(
+                        "Antigravity -v command executed - status: {}, stdout: '{}', stderr: '{}'", 
+                        out_v.status, stdout_v, stderr_v
+                    ));
+                    
+                    if out_v.status.success() {
+                        let raw_v = if stdout_v.is_empty() { &stderr_v } else { &stdout_v };
+                        if !raw_v.is_empty() {
+                            let version = extract_version(raw_v);
+                            log_debug(&format!("Antigravity version extracted (-v): {}", version));
+                            return Some(version);
+                        }
+                    }
+                }
+                
+                let err = if stderr.is_empty() { stdout } else { stderr };
+                log_info(&format!("Antigravity command failed: {}", err));
+            }
+        }
+        Err(e) => {
+            log_info(&format!("Failed to execute antigravity command: {}", e));
+        }
+    }
+    
+    None
+}
+
+/// 从版本输出中提取纯版本号
+fn extract_version(raw: &str) -> String {
+    use regex::Regex;
+    use once_cell::sync::Lazy;
+    
+    static VERSION_RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"\d+\.\d+\.\d+(-[\w.]+)?").expect("Invalid version regex"));
+    
+    VERSION_RE
+        .find(raw)
+        .map(|m| m.as_str().to_string())
+        .unwrap_or_else(|| raw.to_string())
+}

@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/hooks/useTheme'
 import { useTranslation } from 'react-i18next'
+import packageJson from '../../../package.json'
 
 export function TopNav() {
   const { theme, setTheme } = useTheme()
@@ -32,9 +33,12 @@ export function TopNav() {
           <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
             <span className="font-bold text-lg">N</span>
           </div>
-          <h1 className="text-xl font-bold text-foreground tracking-tight">
-            {t('app.name')}
-          </h1>
+          <div className="flex flex-col">
+            <h1 className="text-xl font-bold text-foreground tracking-tight">
+              {t('app.name')}
+            </h1>
+            <span className="text-xs text-muted-foreground">v{packageJson.version}</span>
+          </div>
         </div>
 
         {/* Navigation */}

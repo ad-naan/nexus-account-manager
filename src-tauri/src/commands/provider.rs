@@ -7,6 +7,13 @@ use tauri::AppHandle;
 use crate::utils::logger::{log_debug, log_info, log_warn};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PlatformVersion {
+    pub platform: String,
+    pub installed: bool,
+    pub version: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClaudeConfig {
     pub env: HashMap<String, String>,
 }
@@ -210,4 +217,73 @@ pub async fn apply_gemini_provider(
     
     log_info(&format!("成功写入 Gemini 配置到: {:?}", config_path));
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_platform_versions(_app: AppHandle) -> Result<Vec<PlatformVersion>, String> {
+    use crate::commands::{claude, codex, gemini, kiro, antigravity};
+    
+    log_debug("检查平台安装状态和版本");
+    
+    let mut versions = Vec::new();
+    let home = dirs::home_dir().ok_or("无法获取用户主目录")?;
+    
+    // Claude
+    let claude_path = get_claude_config_path().ok();
+    let claude_installed = claude_path.as_ref().map(|p| p.exists()).unwrap_or(false);
+    versions.push(PlatformVersion {
+        platform: "claude".to_string(),
+        installed: claude_installed,
+        version: if claude_installed { claude::get_claude_version() } else { None },
+    });
+    
+    // Codex
+    let codex_path = home.join(".codex");
+    let codex_installed = codex_path.exists() && (
+        codex_path.join("config.toml").exists() || 
+        codex_path.join("auth.json").exists()
+    );
+    versions.push(PlatformVersion {
+        platform: "codex".to_string(),
+        installed: codex_installed,
+        version: if codex_installed { codex::get_codex_version() } else { None },
+    });
+    
+    // Gemini
+    let gemini_path = home.join(".gemini");
+    let gemini_installed = gemini_path.exists() && (
+        gemini_path.join(".env").exists() || 
+        gemini_path.join("config.json").exists() ||
+        gemini_path.join("settings.json").exists()
+    );
+    versions.push(PlatformVersion {
+        platform: "gemini".to_string(),
+        installed: gemini_installed,
+        version: if gemini_installed { gemini::get_gemini_version() } else { None },
+    });
+    
+    // Kiro
+    let kiro_path = home.join(".kiro");
+    let sso_cache = home.join(".aws").join("sso").join("cache");
+    let kiro_token_path = sso_cache.join("kiro-auth-token.json");
+    let kiro_installed = kiro_path.exists() || kiro_token_path.exists();
+    versions.push(PlatformVersion {
+        platform: "kiro".to_string(),
+        installed: kiro_installed,
+        version: if kiro_installed { kiro::get_kiro_version() } else { None },
+    });
+    
+    // Antigravity
+    let antigravity_installed = match crate::utils::config::load_app_config() {
+        Ok(config) => config.antigravity_executable.is_some(),
+        Err(_) => false,
+    };
+    versions.push(PlatformVersion {
+        platform: "antigravity".to_string(),
+        installed: antigravity_installed,
+        version: if antigravity_installed { antigravity::get_antigravity_version() } else { None },
+    });
+    
+    log_info(&format!("平台版本检查完成: {:?}", versions));
+    Ok(versions)
 }

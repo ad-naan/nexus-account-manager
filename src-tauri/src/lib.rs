@@ -197,6 +197,7 @@ pub fn run() {
             commands::provider::apply_codex_provider,
             commands::provider::get_gemini_provider_config,
             commands::provider::apply_gemini_provider,
+            commands::provider::get_platform_versions,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

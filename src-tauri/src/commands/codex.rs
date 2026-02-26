@@ -227,3 +227,70 @@ pub async fn get_codex_config(app: AppHandle) -> Result<Value, String> {
     Ok(Value::Object(result))
 }
 
+/// Get Codex platform version
+pub fn get_codex_version() -> Option<String> {
+    use crate::utils::logger::{log_debug, log_info};
+    use std::process::Command;
+    
+    log_debug("Checking Codex version");
+    
+    // 尝试直接执行命令获取版本
+    #[cfg(target_os = "windows")]
+    let output = {
+        Command::new("cmd")
+            .args(["/C", "codex --version"])
+            .output()
+    };
+    
+    #[cfg(not(target_os = "windows"))]
+    let output = {
+        Command::new("sh")
+            .arg("-c")
+            .arg("codex --version")
+            .output()
+    };
+    
+    match output {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            
+            log_info(&format!(
+                "Codex command executed - status: {}, stdout: '{}', stderr: '{}'", 
+                out.status, stdout, stderr
+            ));
+            
+            if out.status.success() {
+                let raw = if stdout.is_empty() { &stderr } else { &stdout };
+                if !raw.is_empty() {
+                    let version = extract_version(raw);
+                    log_debug(&format!("Codex version extracted: {}", version));
+                    return Some(version);
+                }
+            } else {
+                let err = if stderr.is_empty() { stdout } else { stderr };
+                log_info(&format!("Codex command failed: {}", err));
+            }
+        }
+        Err(e) => {
+            log_info(&format!("Failed to execute codex command: {}", e));
+        }
+    }
+    
+    None
+}
+
+/// 从版本输出中提取纯版本号
+fn extract_version(raw: &str) -> String {
+    use regex::Regex;
+    use once_cell::sync::Lazy;
+    
+    static VERSION_RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"\d+\.\d+\.\d+(-[\w.]+)?").expect("Invalid version regex"));
+    
+    VERSION_RE
+        .find(raw)
+        .map(|m| m.as_str().to_string())
+        .unwrap_or_else(|| raw.to_string())
+}
+
