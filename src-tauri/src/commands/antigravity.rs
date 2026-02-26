@@ -355,8 +355,12 @@ pub fn get_antigravity_version() -> Option<String> {
     // 尝试执行 antigravity --version
     #[cfg(target_os = "windows")]
     let output = {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        
         Command::new("cmd")
             .args(["/C", &format!("\"{}\" --version", exe_path)])
+            .creation_flags(CREATE_NO_WINDOW)
             .output()
     };
     
@@ -391,8 +395,12 @@ pub fn get_antigravity_version() -> Option<String> {
                 
                 #[cfg(target_os = "windows")]
                 let output_v = {
+                    use std::os::windows::process::CommandExt;
+                    const CREATE_NO_WINDOW: u32 = 0x08000000;
+                    
                     Command::new("cmd")
                         .args(["/C", &format!("\"{}\" -v", exe_path)])
+                        .creation_flags(CREATE_NO_WINDOW)
                         .output()
                 };
                 

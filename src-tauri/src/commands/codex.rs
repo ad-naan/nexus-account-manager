@@ -237,8 +237,12 @@ pub fn get_codex_version() -> Option<String> {
     // 尝试直接执行命令获取版本
     #[cfg(target_os = "windows")]
     let output = {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        
         Command::new("cmd")
             .args(["/C", "codex --version"])
+            .creation_flags(CREATE_NO_WINDOW)
             .output()
     };
     
