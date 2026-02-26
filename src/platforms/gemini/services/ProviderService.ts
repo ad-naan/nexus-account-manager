@@ -1,24 +1,18 @@
 import { invoke } from '@tauri-apps/api/core'
 import { GeminiProviderPreset } from '@/types/provider'
-import { GeminiEnvConfig } from '@/types/account'
+import { GeminiConfig } from '@/types/account'
 
 export class GeminiProviderService {
-  async getCurrentConfig(): Promise<GeminiEnvConfig> {
-    return await invoke<GeminiEnvConfig>('get_gemini_provider_config')
+  async getCurrentConfig(): Promise<GeminiConfig> {
+    return await invoke<GeminiConfig>('get_gemini_provider_config')
   }
 
-  async applyProvider(preset: GeminiProviderPreset, apiKey: string): Promise<void> {
-    const config: GeminiEnvConfig = {
-      env: {
-        ...preset.config.env,
-        GEMINI_API_KEY: apiKey,
-      },
-    }
-    
-    await invoke('apply_gemini_provider', { config })
+  async applyProvider(_preset: GeminiProviderPreset, _apiKey: string): Promise<void> {
+    // TODO: Implement provider preset application logic
+    throw new Error('Not implemented')
   }
 
-  async applyConfig(config: GeminiEnvConfig): Promise<void> {
+  async applyConfig(config: GeminiConfig): Promise<void> {
     await invoke('apply_gemini_provider', { config })
   }
 }

@@ -1,24 +1,18 @@
 import { invoke } from '@tauri-apps/api/core'
 import { CodexProviderPreset } from '@/types/provider'
-import { CodexEnvConfig } from '@/types/account'
+import { CodexConfig } from '@/types/account'
 
 export class CodexProviderService {
-  async getCurrentConfig(): Promise<CodexEnvConfig> {
-    return await invoke<CodexEnvConfig>('get_codex_provider_config')
+  async getCurrentConfig(): Promise<CodexConfig> {
+    return await invoke<CodexConfig>('get_codex_provider_config')
   }
 
-  async applyProvider(preset: CodexProviderPreset, apiKey: string): Promise<void> {
-    const config: CodexEnvConfig = {
-      env: {
-        ...preset.config.env,
-        OPENAI_API_KEY: apiKey,
-      },
-    }
-    
-    await invoke('apply_codex_provider', { config })
+  async applyProvider(_preset: CodexProviderPreset, _apiKey: string): Promise<void> {
+    // TODO: Implement provider preset application logic
+    throw new Error('Not implemented')
   }
 
-  async applyConfig(config: CodexEnvConfig): Promise<void> {
+  async applyConfig(config: CodexConfig): Promise<void> {
     await invoke('apply_codex_provider', { config })
   }
 }
