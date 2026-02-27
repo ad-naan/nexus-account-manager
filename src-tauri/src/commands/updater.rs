@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use tauri::Manager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateInfo {
@@ -29,7 +28,7 @@ pub async fn check_for_updates(app: tauri::AppHandle) -> Result<UpdateInfo, Stri
                             latest_version: update.version.clone(),
                             has_update: true,
                             release_notes: Some(update.body.clone().unwrap_or_default()),
-                            download_url: Some(update.download_url.clone()),
+                            download_url: Some(update.download_url.to_string()),
                         })
                     }
                     Ok(None) => {
@@ -63,20 +62,30 @@ pub async fn check_for_updates(app: tauri::AppHandle) -> Result<UpdateInfo, Stri
 
 /// 下载并安装更新
 #[tauri::command]
-pub async fn download_and_install_update(app: tauri::AppHandle) -> Result<(), String> {
+pub async fn download_and_install_update(_app: tauri::AppHandle, window: tauri::Window) -> Result<(), String> {
     #[cfg(not(debug_assertions))]
     {
         use tauri_plugin_updater::UpdaterExt;
         
-        match app.updater() {
+        match _app.updater() {
             Ok(updater) => {
                 match updater.check().await {
                     Ok(Some(update)) => {
                         // 下载并安装更新
+                        let window_clone = window.clone();
                         update
-                            .download_and_install(|_chunk_length, _content_length| {
-                                // 可以在这里发送进度事件
-                            })
+                            .download_and_install(
+                                move |chunk_length, content_length| {
+                                    // 发送下载进度事件
+                                    if let Some(total) = content_length {
+                                        let _ = window_clone.emit("download-progress", (chunk_length, total));
+                                    }
+                                },
+                                || {
+                                    // 下载完成回调
+                                    let _ = window.emit("download-finished", ());
+                                }
+                            )
                             .await
                             .map_err(|e| format!("Failed to download and install update: {}", e))?;
                         
@@ -92,6 +101,7 @@ pub async fn download_and_install_update(app: tauri::AppHandle) -> Result<(), St
     
     #[cfg(debug_assertions)]
     {
+        let _ = window; // 避免未使用警告
         Err("Updates are disabled in development mode".to_string())
     }
 }

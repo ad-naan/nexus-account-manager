@@ -11,7 +11,7 @@ use sysinfo::System;
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
-use super::logger::{log_info, log_warn, log_error};
+use super::logger::{log_info, log_warn};
 use super::config::load_app_config;
 
 /// 获取当前运行可执行文件的规范化路径

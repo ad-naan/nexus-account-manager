@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Dialog,
@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Download, RefreshCw, X, CheckCircle2, AlertCircle } from 'lucide-react'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { logError, logInfo } from '@/lib/logger'
 
@@ -35,12 +36,51 @@ export function UpdateDialog({ open, onOpenChange, updateInfo }: UpdateDialogPro
   const { t } = useTranslation()
   const [updateState, setUpdateState] = useState<UpdateState>('idle')
   const [error, setError] = useState<string>('')
+  const [downloadProgress, setDownloadProgress] = useState<number>(0)
+  const [downloadedBytes, setDownloadedBytes] = useState<number>(0)
+  const [totalBytes, setTotalBytes] = useState<number>(0)
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+
+    const setupListener = async () => {
+      // 监听下载进度事件
+      unlisten = await listen<[number, number]>('download-progress', (event) => {
+        const [downloaded, total] = event.payload
+        setDownloadedBytes(downloaded)
+        setTotalBytes(total)
+        const progress = Math.round((downloaded / total) * 100)
+        setDownloadProgress(progress)
+      })
+    }
+
+    if (open) {
+      setupListener()
+    }
+
+    return () => {
+      if (unlisten) {
+        unlisten()
+      }
+    }
+  }, [open])
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`
+  }
 
   const handleUpdate = async () => {
     if (!updateInfo?.has_update) return
 
     setUpdateState('downloading')
     setError('')
+    setDownloadProgress(0)
+    setDownloadedBytes(0)
+    setTotalBytes(0)
 
     try {
       logInfo('Starting update download...')
@@ -71,6 +111,9 @@ export function UpdateDialog({ open, onOpenChange, updateInfo }: UpdateDialogPro
     onOpenChange(false)
     setUpdateState('idle')
     setError('')
+    setDownloadProgress(0)
+    setDownloadedBytes(0)
+    setTotalBytes(0)
   }
 
   if (!updateInfo) return null
@@ -116,12 +159,20 @@ export function UpdateDialog({ open, onOpenChange, updateInfo }: UpdateDialogPro
         <div className="space-y-4 py-4">
           {/* 更新状态 */}
           {updateState === 'downloading' && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">{t('update.downloading')}</span>
-                <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
+                <span className="font-mono text-blue-600 dark:text-blue-400">
+                  {downloadProgress}%
+                </span>
               </div>
-              <Progress value={undefined} className="h-2" />
+              <Progress value={downloadProgress} className="h-2" />
+              {totalBytes > 0 && (
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{formatBytes(downloadedBytes)} / {formatBytes(totalBytes)}</span>
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                </div>
+              )}
             </div>
           )}
 
