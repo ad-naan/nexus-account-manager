@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-const fs = require("fs");
-const { execSync } = require("child_process");
+import fs from "fs";
+import { execSync } from "child_process";
 
 function updateJSONVersion(file, version) {
   const json = JSON.parse(fs.readFileSync(file, "utf8"));
