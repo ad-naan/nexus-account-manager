@@ -20,7 +20,7 @@ export function KiroAccountList() {
   const [exportOpen, setExportOpen] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [searchQuery, setSearchQuery] = useState('')
-  const { versions } = usePlatformVersions()
+  const { versions, loading: versionsLoading } = usePlatformVersions()
   
   // 性能优化：使用 useDeferredValue 延迟搜索查询，避免输入卡顿
   const deferredSearchQuery = useDeferredValue(searchQuery)
@@ -52,7 +52,11 @@ export function KiroAccountList() {
             <h2 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
               {t('platforms.kiro.name')}
             </h2>
-            {kiroVersion?.installed ? (
+            {versionsLoading ? (
+              <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded animate-pulse">
+                {t('common.loading') || 'Loading...'}
+              </span>
+            ) : kiroVersion?.installed ? (
               kiroVersion.version ? (
                 <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded">
                   v{kiroVersion.version}

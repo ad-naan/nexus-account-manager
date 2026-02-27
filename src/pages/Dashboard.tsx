@@ -15,7 +15,7 @@ export function Dashboard() {
   const navigate = useNavigate()
   const platforms = getAllPlatforms()
   const { t } = useTranslation()
-  const { versions } = usePlatformVersions()
+  const { versions, loading: versionsLoading } = usePlatformVersions()
 
   const activeAccounts = accounts.filter((a) => a.isActive).length
   const antigravityAccounts = accounts.filter((a): a is AntigravityAccount => a.platform === 'antigravity')
@@ -116,7 +116,11 @@ export function Dashboard() {
                           <h3 className="font-semibold text-xl tracking-tight text-foreground">
                             {t(`platforms.${platform.id}.name`)}
                           </h3>
-                          {platformVersion?.installed ? (
+                          {versionsLoading ? (
+                            <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded animate-pulse">
+                              {t('common.loading') || 'Loading...'}
+                            </span>
+                          ) : platformVersion?.installed ? (
                             platformVersion.version ? (
                               <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded">
                                 v{platformVersion.version}
