@@ -6,6 +6,8 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { StorageService } from '@/services/StorageService'
+import { UpdateDialog } from '@/components/dialogs/UpdateDialog'
+import { invoke } from '@tauri-apps/api/core'
 import {
   FolderOpen,
   Save,
@@ -18,8 +20,18 @@ import {
   Laptop,
   Info,
   CheckCircle2,
-  RotateCcw
+  RotateCcw,
+  RefreshCw,
+  Sparkles
 } from 'lucide-react'
+
+interface UpdateInfo {
+  current_version: string
+  latest_version: string
+  has_update: boolean
+  release_notes?: string
+  download_url?: string
+}
 
 export function Settings() {
   const { theme, setTheme } = useTheme()
@@ -27,6 +39,9 @@ export function Settings() {
   const [storagePath, setStoragePath] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false)
   const storageService = StorageService.getInstance()
 
   useEffect(() => {
@@ -78,6 +93,19 @@ export function Settings() {
       logError('Failed to reset path:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleCheckUpdate = async () => {
+    setCheckingUpdate(true)
+    try {
+      const info = await invoke<UpdateInfo>('check_for_updates')
+      setUpdateInfo(info)
+      setShowUpdateDialog(true)
+    } catch (error) {
+      logError('Failed to check for updates:', error)
+    } finally {
+      setCheckingUpdate(false)
     }
   }
 
@@ -259,11 +287,11 @@ export function Settings() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <div className="p-4 rounded-lg bg-background border border-border">
               <span className="text-xs text-muted-foreground uppercase tracking-wider">{t('settings.version')}</span>
-              <p className="text-lg font-mono font-medium mt-1">1.0.0</p>
+              <p className="text-lg font-mono font-medium mt-1">1.0.2</p>
             </div>
             <div className="p-4 rounded-lg bg-background border border-border">
               <span className="text-xs text-muted-foreground uppercase tracking-wider">{t('settings.author')}</span>
@@ -274,8 +302,49 @@ export function Settings() {
               <p className="text-lg font-medium mt-1">MIT</p>
             </div>
           </div>
+
+          {/* 更新检查 */}
+          <div className="pt-6 border-t border-border">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  {t('update.checkForUpdates')}
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  {t('update.checkDescription')}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCheckUpdate}
+                disabled={checkingUpdate}
+                className="bg-background hover:bg-muted"
+              >
+                {checkingUpdate ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    {t('update.checking')}
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    {t('update.checkNow')}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
+
+      {/* 更新对话框 */}
+      <UpdateDialog
+        open={showUpdateDialog}
+        onOpenChange={setShowUpdateDialog}
+        updateInfo={updateInfo}
+      />
     </div>
   )
 }

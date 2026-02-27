@@ -9,6 +9,7 @@ pub mod claude;
 pub mod codex;
 pub mod gemini;
 pub mod provider;
+pub mod updater;
 
 pub struct AppState {
     pub storage: Mutex<Storage>,

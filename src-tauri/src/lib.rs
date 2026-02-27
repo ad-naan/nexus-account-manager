@@ -14,6 +14,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             let _ = app.emit("single-instance", args.clone());
             
@@ -198,6 +199,9 @@ pub fn run() {
             commands::provider::get_gemini_provider_config,
             commands::provider::apply_gemini_provider,
             commands::provider::get_platform_versions,
+            // Updater 命令
+            updater::check_for_updates,
+            updater::download_and_install_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

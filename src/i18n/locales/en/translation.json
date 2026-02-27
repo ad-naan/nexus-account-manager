@@ -272,5 +272,27 @@
         "unbindTitle": "Unbind Machine ID",
         "unbindDescription": "Are you sure you want to unbind the machine ID from this account?",
         "unbind": "Unbind"
+    },
+    "update": {
+        "checkForUpdates": "Check for Updates",
+        "checkDescription": "Check if a new version is available",
+        "checkNow": "Check Now",
+        "checking": "Checking...",
+        "availableTitle": "Update Available",
+        "availableDescription": "Current version {{current}}, latest version {{latest}}",
+        "upToDate": "You're up to date",
+        "currentVersion": "Current Version",
+        "latestVersion": "Latest Version",
+        "releaseNotes": "Release Notes",
+        "downloadAndInstall": "Download & Install",
+        "downloading": "Downloading update...",
+        "readyTitle": "Update Ready",
+        "readyDescription": "Update downloaded successfully, app will restart automatically",
+        "restarting": "Restarting application...",
+        "errorTitle": "Update Failed",
+        "errorDescription": "An error occurred during the update process, please try again later",
+        "relaunchError": "Failed to restart application, please restart manually",
+        "retry": "Retry",
+        "close": "Close"
     }
 }
