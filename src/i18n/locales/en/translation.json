@@ -232,7 +232,21 @@
         "system": "System",
         "author": "Author",
         "license": "License",
-        "currentPath": "Current path: {{path}}"
+        "currentPath": "Current path: {{path}}",
+        "updates": "Software Updates",
+        "updatesDesc": "Check for and install application updates",
+        "checkUpdates": "Check for Updates",
+        "checking": "Checking...",
+        "updateAvailable": "Update Available!",
+        "newVersion": "New version {{latest}} is available (current: {{current}})",
+        "releaseNotes": "Release Notes",
+        "downloadAndInstall": "Download and Install",
+        "downloading": "Downloading...",
+        "installing": "Installing...",
+        "upToDate": "You're up to date!",
+        "currentlyRunning": "You're running the latest version ({{version}})",
+        "clickToCheck": "Click 'Check for Updates' to see if a new version is available",
+        "updateError": "Failed to check for updates"
     },
     "export": {
         "title": "Export Accounts",

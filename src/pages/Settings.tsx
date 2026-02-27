@@ -2,10 +2,12 @@ import { logError } from '@/lib/logger'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/hooks/useTheme'
+import { useUpdate } from '@/contexts/UpdateContext'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { StorageService } from '@/services/StorageService'
+import packageJson from '../../package.json'
 import {
   FolderOpen,
   Save,
@@ -18,7 +20,10 @@ import {
   Laptop,
   Info,
   CheckCircle2,
-  RotateCcw
+  RotateCcw,
+  RefreshCw,
+  AlertCircle,
+  Loader2
 } from 'lucide-react'
 
 export function Settings() {
@@ -27,7 +32,18 @@ export function Settings() {
   const [storagePath, setStoragePath] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [downloadProgress, setDownloadProgress] = useState(0)
   const storageService = StorageService.getInstance()
+  
+  const { 
+    hasUpdate, 
+    updateInfo, 
+    updateHandle,
+    isChecking, 
+    error: updateError, 
+    checkUpdate 
+  } = useUpdate()
 
   useEffect(() => {
     loadStoragePath()
@@ -78,6 +94,37 @@ export function Settings() {
       logError('Failed to reset path:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDownloadAndInstall = async () => {
+    if (!updateHandle) return
+    
+    setDownloading(true)
+    setDownloadProgress(0)
+    
+    try {
+      let totalDownloaded = 0
+      await updateHandle.downloadAndInstall((progress) => {
+        if (progress.event === 'Started' && progress.total) {
+          // 开始下载
+          totalDownloaded = 0
+        } else if (progress.event === 'Progress' && progress.downloaded) {
+          // 更新进度
+          totalDownloaded += progress.downloaded
+          const percent = progress.total ? (totalDownloaded / progress.total) * 100 : 0
+          setDownloadProgress(Math.min(percent, 100))
+        } else if (progress.event === 'Finished') {
+          // 下载完成
+          setDownloadProgress(100)
+        }
+      })
+      
+      // 安装完成后会自动重启应用
+    } catch (error) {
+      logError('Failed to download and install update:', error)
+      setDownloading(false)
+      setDownloadProgress(0)
     }
   }
 
@@ -263,7 +310,7 @@ export function Settings() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <div className="p-4 rounded-lg bg-background border border-border">
               <span className="text-xs text-muted-foreground uppercase tracking-wider">{t('settings.version')}</span>
-              <p className="text-lg font-mono font-medium mt-1">1.0.0</p>
+              <p className="text-lg font-mono font-medium mt-1">v{packageJson.version}</p>
             </div>
             <div className="p-4 rounded-lg bg-background border border-border">
               <span className="text-xs text-muted-foreground uppercase tracking-wider">{t('settings.author')}</span>
@@ -274,6 +321,135 @@ export function Settings() {
               <p className="text-lg font-medium mt-1">MIT</p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Software Update Section */}
+      <Card className="border-border bg-card shadow-sm">
+        <CardHeader className="border-b border-border pb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-orange-500/10 text-orange-500 dark:text-orange-400">
+                <Download className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">{t('settings.updates')}</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {t('settings.updatesDesc')}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={checkUpdate}
+              disabled={isChecking || downloading}
+              className="bg-background hover:bg-muted"
+            >
+              <RefreshCw className={cn("h-4 w-4 mr-2", isChecking && "animate-spin")} />
+              {isChecking ? t('settings.checking') : t('settings.checkUpdates')}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-6">
+          {updateError && (
+            <div className="mb-4 p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-destructive">{t('settings.updateError')}</p>
+                <p className="text-xs text-muted-foreground mt-1">{updateError}</p>
+              </div>
+            </div>
+          )}
+
+          {hasUpdate && updateInfo && !updateError && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-start gap-3">
+                <Download className="h-5 w-5 text-orange-500 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-orange-600 dark:text-orange-400">
+                    {t('settings.updateAvailable')}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t('settings.newVersion', { 
+                      current: updateInfo.currentVersion, 
+                      latest: updateInfo.availableVersion 
+                    })}
+                  </p>
+                </div>
+              </div>
+
+              {updateInfo.notes && (
+                <div className="p-4 rounded-lg bg-background border border-border">
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    {t('settings.releaseNotes')}
+                  </h4>
+                  <div className="text-xs text-muted-foreground max-h-32 overflow-y-auto whitespace-pre-wrap">
+                    {updateInfo.notes.slice(0, 300)}
+                    {updateInfo.notes.length > 300 && '...'}
+                  </div>
+                </div>
+              )}
+
+              {downloading && (
+                <div className="p-4 rounded-lg bg-background border border-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">{t('settings.downloading')}</span>
+                    <span className="text-sm text-muted-foreground">{Math.round(downloadProgress)}%</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div 
+                      className="bg-primary h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${downloadProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleDownloadAndInstall}
+                  disabled={downloading}
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  {downloading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {t('settings.installing')}
+                    </>
+                  ) : (
+                    <>
+                      <Download className="mr-2 h-4 w-4" />
+                      {t('settings.downloadAndInstall')}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {!hasUpdate && !isChecking && !updateError && updateInfo && (
+            <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20 flex items-start gap-3">
+              <CheckCircle2 className="h-5 w-5 text-green-500 dark:text-green-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                  {t('settings.upToDate')}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t('settings.currentlyRunning', { version: updateInfo.currentVersion })}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!hasUpdate && !isChecking && !updateError && !updateInfo && (
+            <div className="p-4 rounded-lg bg-muted/50 border border-border flex items-center justify-center">
+              <p className="text-sm text-muted-foreground">
+                {t('settings.clickToCheck')}
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

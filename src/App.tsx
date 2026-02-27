@@ -6,6 +6,7 @@ import { Accounts } from './pages/Accounts'
 import { MachineId } from './pages/MachineId'
 import { Settings } from './pages/Settings'
 import { ThemeManager } from './components/common/ThemeManager'
+import { UpdateProvider } from './contexts/UpdateContext'
 import { useEffect } from 'react'
 import { usePlatformStore } from './stores/usePlatformStore'
 import { Toaster } from "@/components/ui/sonner"
@@ -21,7 +22,7 @@ function App() {
   }, [loadAllAccounts])
 
   return (
-    <>
+    <UpdateProvider>
       <ThemeManager />
       <BrowserRouter>
         <Routes>
@@ -34,7 +35,7 @@ function App() {
         </Routes>
         <Toaster />
       </BrowserRouter>
-    </>
+    </UpdateProvider>
   )
 }
 
