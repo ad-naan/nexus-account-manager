@@ -1,6 +1,6 @@
 [package]
 name = "nexus-account-manager"
-version = "1.0.2"
+version = "1.0.3"
 description = "A unified multi-platform AI account management tool"
 authors = ["adnaan", "027xigupi"]
 edition = "2021"
