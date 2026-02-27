@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+#[cfg(not(debug_assertions))]
+use tauri::Emitter;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateInfo {
     pub current_version: String,
