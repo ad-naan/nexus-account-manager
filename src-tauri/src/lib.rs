@@ -1,12 +1,16 @@
-mod core;
 mod commands;
+mod core;
 mod utils;
 
 use commands::*;
 use core::Storage;
 use std::sync::Mutex;
-use tauri::{Manager, Emitter, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
-use utils::logger::{log_info, log_error};
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::TrayIconBuilder,
+    Emitter, Manager,
+};
+use utils::logger::{log_error, log_info};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -17,13 +21,13 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             let _ = app.emit("single-instance", args.clone());
-            
+
             // Show window when another instance is launched
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.set_focus();
             }
-            
+
             if let Some(url) = args.iter().find(|a| a.starts_with("kiro://")) {
                 use tauri::Manager;
                 match app.state::<core::kiro::DeepLinkState>().sender.lock() {
@@ -31,7 +35,7 @@ pub fn run() {
                         if let Some(sender) = sender_guard.as_ref() {
                             let _ = sender.try_send(url.clone());
                         }
-                    },
+                    }
                     Err(_) => {}
                 }
             }
@@ -41,7 +45,7 @@ pub fn run() {
             if let Err(e) = utils::logger::init_logger() {
                 eprintln!("Failed to initialize logger: {}", e);
             }
-            
+
             app.manage(core::StorageConfig {
                 custom_path: std::sync::Mutex::new(None),
             });
@@ -52,17 +56,22 @@ pub fn run() {
             // Windows Registry for Deep Link
             #[cfg(target_os = "windows")]
             {
+                use std::env;
                 use winreg::enums::*;
                 use winreg::RegKey;
-                use std::env;
 
                 let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-                let path = std::path::Path::new("Software").join("Classes").join("kiro");
-                let (key, _) = hkcu.create_subkey(&path).unwrap_or((hkcu.open_subkey(&path).unwrap(), winreg::enums::RegDisposition::REG_OPENED_EXISTING_KEY));
-                
+                let path = std::path::Path::new("Software")
+                    .join("Classes")
+                    .join("kiro");
+                let (key, _) = hkcu.create_subkey(&path).unwrap_or((
+                    hkcu.open_subkey(&path).unwrap(),
+                    winreg::enums::RegDisposition::REG_OPENED_EXISTING_KEY,
+                ));
+
                 let _ = key.set_value("", &"URL:Kiro Protocol");
                 let _ = key.set_value("URL Protocol", &"");
-                
+
                 let (cmd_key, _) = key.create_subkey("shell\\open\\command").unwrap();
                 if let Ok(exe_path) = env::current_exe() {
                     let cmd = format!("\"{}\" \"%1\"", exe_path.to_string_lossy());
@@ -71,12 +80,11 @@ pub fn run() {
             }
 
             // Initialize storage
-            let storage = Storage::load(&app.handle())
-                .unwrap_or_else(|e| {
-                    log_error(&format!("Failed to load storage: {}", e));
-                    Storage::new()
-                });
-            
+            let storage = Storage::load(&app.handle()).unwrap_or_else(|e| {
+                log_error(&format!("Failed to load storage: {}", e));
+                Storage::new()
+            });
+
             app.manage(AppState {
                 storage: Mutex::new(storage),
             });
@@ -93,7 +101,10 @@ pub fn run() {
             let quit_id = quit_item.id().0.clone();
 
             // Load tray icon from app icon
-            let icon = app.default_window_icon().cloned().expect("Failed to get app icon");
+            let icon = app
+                .default_window_icon()
+                .cloned()
+                .expect("Failed to get app icon");
 
             // Build tray icon
             let _tray = TrayIconBuilder::new()
@@ -118,7 +129,11 @@ pub fn run() {
                     }
                 })
                 .on_tray_icon_event(|tray, event| {
-                    if let tauri::tray::TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, .. } = event {
+                    if let tauri::tray::TrayIconEvent::Click {
+                        button: tauri::tray::MouseButton::Left,
+                        ..
+                    } = event
+                    {
                         let app = tray.app_handle();
                         if let Some(window) = app.get_webview_window("main") {
                             let _ = window.show();
@@ -140,7 +155,7 @@ pub fn run() {
                     }
                 });
             }
-            
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -188,6 +203,13 @@ pub fn run() {
             // Codex 命令
             codex::switch_codex_account,
             codex::get_codex_config,
+            cursor::switch_cursor_account,
+            cursor::get_cursor_config,
+            cursor::cursor_import_from_local,
+            windsurf::get_windsurf_config,
+            windsurf::windsurf_import_from_local,
+            github_copilot::get_github_copilot_config,
+            github_copilot::github_copilot_import_from_local,
             // Gemini 命令
             gemini::switch_gemini_account,
             gemini::get_gemini_config,

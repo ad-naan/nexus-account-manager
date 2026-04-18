@@ -109,9 +109,9 @@ export function ClaudeAccountList() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
               Claude
             </h2>
@@ -131,18 +131,18 @@ export function ClaudeAccountList() {
               </span>
             )}
           </div>
-          <p className="text-muted-foreground mt-2 text-lg font-light">
+          <p className="text-muted-foreground mt-2 max-w-3xl text-lg font-light">
             {t('platforms.claude.description', 'Manage your Claude API accounts')}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-end xl:w-auto">
           {claudeAccounts.length > 0 && (
             <>
               <AccountSearch
                 value={searchQuery}
                 onChange={setSearchQuery}
                 resultCount={filteredAccounts.length}
-                className="w-64"
+                className="w-full md:w-72"
               />
               <div className="flex items-center gap-1 bg-background/50 backdrop-blur-sm border border-white/10 rounded-lg p-1">
                 <Button
@@ -168,7 +168,7 @@ export function ClaudeAccountList() {
                 variant="outline"
                 size="sm"
                 onClick={() => setExportOpen(true)}
-                className="bg-background/50 backdrop-blur-sm border-white/10 hover:bg-background/80"
+                className="w-full bg-background/50 border-white/10 backdrop-blur-sm hover:bg-background/80 md:w-auto"
               >
                 <Download className="h-4 w-4 mr-2" />
                 {t('common.export')}

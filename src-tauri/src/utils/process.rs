@@ -1,5 +1,5 @@
 //! Antigravity IDE 进程控制
-//! 
+//!
 //! 提供启动、关闭、检测 Antigravity IDE 进程的功能
 //! 基于 sysinfo 实现跨平台进程管理
 
@@ -11,8 +11,10 @@ use sysinfo::System;
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
-use super::logger::{log_info, log_warn, log_error};
+#[cfg(not(target_os = "windows"))]
+use super::logger::log_error;
 use super::config::load_app_config;
+use super::logger::{log_info, log_warn};
 
 /// 获取当前运行可执行文件的规范化路径
 fn get_current_exe_path() -> Option<std::path::PathBuf> {
@@ -468,8 +470,6 @@ pub fn get_path_from_running_process() -> Option<std::path::PathBuf> {
     path
 }
 
-
-
 /// 获取 Antigravity 可执行文件路径（跨平台）
 ///
 /// 搜索策略（优先级从高到低）：
@@ -567,18 +567,20 @@ fn check_standard_locations() -> Option<std::path::PathBuf> {
     None
 }
 
-
 /// 关闭 Antigravity 进程
 pub fn close_antigravity(#[allow(unused_variables)] timeout_secs: u64) -> Result<(), String> {
     log_info("Closing Antigravity...");
-    
+
     // 在关闭前先获取并保存路径到配置文件（用于后续启动）
     log_info("Attempting to get Antigravity path from running process...");
     match get_path_from_running_process() {
         Some(path) => {
             let path_str = path.to_string_lossy().to_string();
-            log_info(&format!("Saving Antigravity path before closing: {}", path_str));
-            
+            log_info(&format!(
+                "Saving Antigravity path before closing: {}",
+                path_str
+            ));
+
             if let Err(e) = super::config::update_antigravity_path(path_str) {
                 log_warn(&format!("Failed to save Antigravity path to config: {}", e));
             } else {
@@ -599,10 +601,10 @@ pub fn close_antigravity(#[allow(unused_variables)] timeout_secs: u64) -> Result
                 "Precisely closing {} identified processes on Windows...",
                 pids.len()
             ));
-            
+
             let mut success_count = 0;
             let mut fail_count = 0;
-            
+
             for pid in pids {
                 match Command::new("taskkill")
                     .args(["/F", "/PID", &pid.to_string()])
@@ -622,16 +624,19 @@ pub fn close_antigravity(#[allow(unused_variables)] timeout_secs: u64) -> Result
                     }
                     Err(e) => {
                         fail_count += 1;
-                        log_warn(&format!("Failed to execute taskkill for PID {}: {}", pid, e));
+                        log_warn(&format!(
+                            "Failed to execute taskkill for PID {}: {}",
+                            pid, e
+                        ));
                     }
                 }
             }
-            
+
             log_info(&format!(
                 "Process termination complete: {} succeeded, {} failed",
                 success_count, fail_count
             ));
-            
+
             // 给系统一些时间清理 PID
             thread::sleep(Duration::from_millis(500));
         }
@@ -727,19 +732,14 @@ pub fn close_antigravity(#[allow(unused_variables)] timeout_secs: u64) -> Result
                             ));
                         }
                     } else {
-                        log_info(&format!(
-                            "   => Identified as helper process (Helper/Args)"
-                        ));
+                        log_info(&format!("   => Identified as helper process (Helper/Args)"));
                     }
                 }
             }
 
             // 阶段 1: 优雅退出（SIGTERM）
             if let Some(pid) = main_pid {
-                log_info(&format!(
-                    "Sending SIGTERM to main process PID: {}",
-                    pid
-                ));
+                log_info(&format!("Sending SIGTERM to main process PID: {}", pid));
                 let output = Command::new("kill")
                     .args(["-15", &pid.to_string()])
                     .output();
@@ -747,10 +747,7 @@ pub fn close_antigravity(#[allow(unused_variables)] timeout_secs: u64) -> Result
                 if let Ok(result) = output {
                     if !result.status.success() {
                         let error = String::from_utf8_lossy(&result.stderr);
-                        log_warn(&format!(
-                            "Main process SIGTERM failed: {}",
-                            error
-                        ));
+                        log_warn(&format!("Main process SIGTERM failed: {}", error));
                     }
                 }
             } else {
@@ -894,16 +891,17 @@ pub fn close_antigravity(#[allow(unused_variables)] timeout_secs: u64) -> Result
                             ));
                         }
                     } else {
-                        log_info(&format!(
-                            "   => Identified as helper process (Helper/Args)"
-                        ));
+                        log_info(&format!("   => Identified as helper process (Helper/Args)"));
                     }
                 }
             }
 
             // 阶段 1: 优雅退出（SIGTERM）
             if let Some(pid) = main_pid {
-                log_info(&format!("Attempting to gracefully close main process {} (SIGTERM)", pid));
+                log_info(&format!(
+                    "Attempting to gracefully close main process {} (SIGTERM)",
+                    pid
+                ));
                 let _ = Command::new("kill")
                     .args(["-15", &pid.to_string()])
                     .output();
@@ -945,15 +943,15 @@ pub fn close_antigravity(#[allow(unused_variables)] timeout_secs: u64) -> Result
             }
         } else {
             // pids 为空，意味着没有检测到进程或全部被逻辑排除
-            log_info(
-                "No Antigravity processes found to close (possibly filtered or not running)",
-            );
+            log_info("No Antigravity processes found to close (possibly filtered or not running)");
         }
     }
 
     // 最终检查
     if is_antigravity_running() {
-        return Err("Unable to close Antigravity process, please close manually and retry".to_string());
+        return Err(
+            "Unable to close Antigravity process, please close manually and retry".to_string(),
+        );
     }
 
     log_info("Antigravity closed successfully");
@@ -992,7 +990,10 @@ pub fn start_antigravity() -> Result<(), String> {
         }
 
         if path.exists() {
-            log_info(&format!("Starting with manual configuration path: {}", path_str));
+            log_info(&format!(
+                "Starting with manual configuration path: {}",
+                path_str
+            ));
 
             #[cfg(target_os = "macos")]
             {
@@ -1008,7 +1009,8 @@ pub fn start_antigravity() -> Result<(), String> {
                         }
                     }
 
-                    cmd.spawn().map_err(|e| format!("Startup failed (open): {}", e))?;
+                    cmd.spawn()
+                        .map_err(|e| format!("Startup failed (open): {}", e))?;
                 } else {
                     let mut cmd = Command::new(&path_str);
 
@@ -1086,7 +1088,7 @@ pub fn start_antigravity() -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         let has_args = args.as_ref().map_or(false, |a| !a.is_empty());
-        
+
         if has_args {
             if let Some(detected_path) = get_antigravity_executable_path() {
                 let path_str = detected_path.to_string_lossy().to_string();
@@ -1094,14 +1096,14 @@ pub fn start_antigravity() -> Result<(), String> {
                     "Starting with auto-detected path (has args): {}",
                     path_str
                 ));
-                
+
                 let mut cmd = Command::new(&path_str);
                 if let Some(ref args) = args {
                     for arg in args {
                         cmd.arg(arg);
                     }
                 }
-                
+
                 cmd.creation_flags(0x08000000) // CREATE_NO_WINDOW
                     .spawn()
                     .map_err(|e| format!("Startup failed: {}", e))?;
@@ -1111,8 +1113,9 @@ pub fn start_antigravity() -> Result<(), String> {
         } else {
             let mut cmd = Command::new("cmd");
             cmd.args(["/C", "start", "antigravity://"]);
-            
-            let result = cmd.creation_flags(0x08000000) // CREATE_NO_WINDOW
+
+            let result = cmd
+                .creation_flags(0x08000000) // CREATE_NO_WINDOW
                 .spawn();
             if result.is_err() {
                 return Err("Startup failed, please open Antigravity manually".to_string());
@@ -1138,20 +1141,23 @@ pub fn start_antigravity() -> Result<(), String> {
         "Antigravity startup command sent (default detection, args: {:?})",
         args
     ));
-    
+
     // 等待 Antigravity 启动，然后尝试保存路径
     thread::sleep(Duration::from_secs(2));
-    
+
     if let Some(path) = get_path_from_running_process() {
         let path_str = path.to_string_lossy().to_string();
-        log_info(&format!("Detected Antigravity path after startup: {}", path_str));
-        
+        log_info(&format!(
+            "Detected Antigravity path after startup: {}",
+            path_str
+        ));
+
         if let Err(e) = super::config::update_antigravity_path(path_str) {
             log_warn(&format!("Failed to save detected path to config: {}", e));
         } else {
             log_info("Antigravity path saved to config after startup");
         }
     }
-    
+
     Ok(())
 }

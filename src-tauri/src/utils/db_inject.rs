@@ -1,11 +1,11 @@
 //! Antigravity IDE 数据库 Token 注入
-//! 
+//!
 //! 将账号的 Token 注入到 Antigravity IDE 的 state.vscdb 数据库中
 
-use rusqlite::Connection;
-use base64::{engine::general_purpose, Engine as _};
-use std::path::PathBuf;
 use crate::utils::logger::log_info;
+use base64::{engine::general_purpose, Engine as _};
+use rusqlite::Connection;
+use std::path::PathBuf;
 
 /// 获取 Antigravity IDE 数据库路径
 pub fn get_db_path() -> Result<PathBuf, String> {
@@ -18,18 +18,18 @@ pub fn get_db_path() -> Result<PathBuf, String> {
             .join("User")
             .join("globalStorage")
             .join("state.vscdb");
-        
+
         if !db_path.exists() {
             return Err(format!("Database not found at: {}", db_path.display()));
         }
-        
+
         Ok(db_path)
     }
-    
+
     #[cfg(target_os = "macos")]
     {
-        let home = std::env::var("HOME")
-            .map_err(|_| "HOME environment variable not found".to_string())?;
+        let home =
+            std::env::var("HOME").map_err(|_| "HOME environment variable not found".to_string())?;
         let db_path = PathBuf::from(home)
             .join("Library")
             .join("Application Support")
@@ -37,35 +37,35 @@ pub fn get_db_path() -> Result<PathBuf, String> {
             .join("User")
             .join("globalStorage")
             .join("state.vscdb");
-        
+
         if !db_path.exists() {
             return Err(format!("Database not found at: {}", db_path.display()));
         }
-        
+
         Ok(db_path)
     }
-    
+
     #[cfg(target_os = "linux")]
     {
-        let home = std::env::var("HOME")
-            .map_err(|_| "HOME environment variable not found".to_string())?;
+        let home =
+            std::env::var("HOME").map_err(|_| "HOME environment variable not found".to_string())?;
         let db_path = PathBuf::from(home)
             .join(".config")
             .join("Antigravity")
             .join("User")
             .join("globalStorage")
             .join("state.vscdb");
-        
+
         if !db_path.exists() {
             return Err(format!("Database not found at: {}", db_path.display()));
         }
-        
+
         Ok(db_path)
     }
 }
 
 /// 注入 Token 到数据库
-/// 
+///
 /// 参数：
 /// - db_path: 数据库文件路径
 /// - access_token: 访问令牌
@@ -80,32 +80,26 @@ pub fn inject_token(
     email: &str,
 ) -> Result<(), String> {
     log_info(&format!("Injecting token for: {}", email));
-    
-    let conn = Connection::open(db_path)
-        .map_err(|e| format!("Failed to open database: {}", e))?;
-    
+
+    let conn = Connection::open(db_path).map_err(|e| format!("Failed to open database: {}", e))?;
+
     // 尝试旧格式注入（兼容性最好）
-    let old_format_result = inject_old_format(
-        &conn,
-        access_token,
-        refresh_token,
-        expiry_timestamp,
-        email,
-    );
-    
+    let old_format_result =
+        inject_old_format(&conn, access_token, refresh_token, expiry_timestamp, email);
+
     // 如果旧格式失败，尝试新格式
     if old_format_result.is_err() {
         log_info("Old format failed, trying new format");
         inject_new_format(&conn, access_token, refresh_token, expiry_timestamp)?;
     }
-    
+
     // 注入 Onboarding 标志
     conn.execute(
         "INSERT OR REPLACE INTO ItemTable (key, value) VALUES (?, ?)",
         ["antigravityOnboarding", "true"],
     )
     .map_err(|e| format!("Failed to write onboarding flag: {}", e))?;
-    
+
     log_info("Token injected successfully");
     Ok(())
 }
@@ -119,7 +113,7 @@ fn inject_old_format(
     email: &str,
 ) -> Result<(), String> {
     use rusqlite::Error as SqliteError;
-    
+
     // 读取当前数据
     let current_data: String = conn
         .query_row(
@@ -128,37 +122,35 @@ fn inject_old_format(
             |row| row.get(0),
         )
         .map_err(|e| match e {
-            SqliteError::QueryReturnedNoRows => {
-                "Old format key does not exist".to_string()
-            }
+            SqliteError::QueryReturnedNoRows => "Old format key does not exist".to_string(),
             _ => format!("Failed to read data: {}", e),
         })?;
-    
+
     // Base64 解码
     let blob = general_purpose::STANDARD
         .decode(&current_data)
         .map_err(|e| format!("Base64 decoding failed: {}", e))?;
-    
+
     // 移除旧字段
     let mut clean_data = remove_field(&blob, 1)?; // UserID
-    clean_data = remove_field(&clean_data, 2)?;   // Email
-    clean_data = remove_field(&clean_data, 6)?;   // OAuthTokenInfo
-    
+    clean_data = remove_field(&clean_data, 2)?; // Email
+    clean_data = remove_field(&clean_data, 6)?; // OAuthTokenInfo
+
     // 创建新字段
     let new_email_field = create_email_field(email);
     let new_oauth_field = create_oauth_field(access_token, refresh_token, expiry);
-    
+
     // 合并数据
     let final_data = [clean_data, new_email_field, new_oauth_field].concat();
     let final_b64 = general_purpose::STANDARD.encode(&final_data);
-    
+
     // 写入数据库
     conn.execute(
         "UPDATE ItemTable SET value = ? WHERE key = ?",
         [&final_b64, "jetskiStateSync.agentManagerInitState"],
     )
     .map_err(|e| format!("Failed to write data: {}", e))?;
-    
+
     log_info("Old format injection successful");
     Ok(())
 }
@@ -173,24 +165,24 @@ fn inject_new_format(
     // 创建 OAuthTokenInfo（二进制）
     let oauth_info = create_oauth_info(access_token, refresh_token, expiry);
     let oauth_info_b64 = general_purpose::STANDARD.encode(&oauth_info);
-    
+
     // InnerMessage2: field 1 = base64(oauth_info)
     let inner2 = encode_string_field(1, &oauth_info_b64);
-    
+
     // InnerMessage: field 1 = sentinel key, field 2 = inner2
     let inner1 = encode_string_field(1, "oauthTokenInfoSentinelKey");
     let inner = [inner1, encode_len_delim_field(2, &inner2)].concat();
-    
+
     // OuterMessage: field 1 = inner
     let outer = encode_len_delim_field(1, &inner);
     let outer_b64 = general_purpose::STANDARD.encode(&outer);
-    
+
     conn.execute(
         "INSERT OR REPLACE INTO ItemTable (key, value) VALUES (?, ?)",
         ["antigravityUnifiedStateSync.oauthToken", &outer_b64],
     )
     .map_err(|e| format!("Failed to write new format: {}", e))?;
-    
+
     log_info("New format injection successful");
     Ok(())
 }
@@ -283,7 +275,7 @@ fn remove_field(data: &[u8], field_num: u32) -> Result<Vec<u8>, String> {
 }
 
 /// 创建 OAuthTokenInfo（Field 6）
-/// 
+///
 /// 结构：
 /// message OAuthTokenInfo {
 ///     optional string access_token = 1;
@@ -294,19 +286,19 @@ fn remove_field(data: &[u8], field_num: u32) -> Result<Vec<u8>, String> {
 fn create_oauth_field(access_token: &str, refresh_token: &str, expiry: i64) -> Vec<u8> {
     // Field 1: access_token
     let field1 = encode_string_field(1, access_token);
-    
+
     // Field 2: token_type = "Bearer"
     let field2 = encode_string_field(2, "Bearer");
-    
+
     // Field 3: refresh_token
     let field3 = encode_string_field(3, refresh_token);
-    
+
     // Field 4: expiry（嵌套的 Timestamp 消息）
     let timestamp_tag = (1 << 3) | 0;
     let mut timestamp_msg = encode_varint(timestamp_tag);
     timestamp_msg.extend(encode_varint(expiry as u64));
     let field4 = encode_len_delim_field(4, &timestamp_msg);
-    
+
     // 合并所有字段为 OAuthTokenInfo 消息
     let oauth_info = [field1, field2, field3, field4].concat();
 
@@ -342,19 +334,19 @@ fn encode_string_field(field_num: u32, value: &str) -> Vec<u8> {
 fn create_oauth_info(access_token: &str, refresh_token: &str, expiry: i64) -> Vec<u8> {
     // Field 1: access_token
     let field1 = encode_string_field(1, access_token);
-    
+
     // Field 2: token_type = "Bearer"
     let field2 = encode_string_field(2, "Bearer");
-    
+
     // Field 3: refresh_token
     let field3 = encode_string_field(3, refresh_token);
-    
+
     // Field 4: expiry（嵌套的 Timestamp 消息）
     let timestamp_tag = (1 << 3) | 0;
     let mut timestamp_msg = encode_varint(timestamp_tag);
     timestamp_msg.extend(encode_varint(expiry as u64));
     let field4 = encode_len_delim_field(4, &timestamp_msg);
-    
+
     // 合并所有字段为 OAuthTokenInfo 消息
     [field1, field2, field3, field4].concat()
 }

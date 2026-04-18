@@ -1,6 +1,6 @@
 /**
  * Kiro Account Service
- * 
+ *
  * Handles Kiro account operations including:
  * - Token refresh
  * - Quota checking
@@ -19,7 +19,13 @@ export interface RefreshTokenResult {
     accessToken?: string
     refreshToken?: string
     expiresIn?: number
+    updatedAccount?: Partial<KiroAccount>
     error?: string
+}
+
+export interface SwitchAccountResult {
+    credentials: KiroAccount['credentials']
+    lastUsedAt: number
 }
 
 export interface CheckStatusResult {
@@ -63,112 +69,74 @@ export interface BatchCheckResult {
 
 export class KiroAccountService {
     /**
-     * Switch to a Kiro account
-     * Writes credentials to local AWS SSO cache so VS Code AWS Toolkit can use them
+     * Switch to a Kiro account.
+     * Writes credentials to the local AWS SSO cache so VS Code AWS Toolkit can use them.
      */
-    static async switchAccount(accountId: string): Promise<void> {
-        const { usePlatformStore } = await import('@/stores/usePlatformStore')
-        const store = usePlatformStore.getState()
-        const accounts = store.accounts
-        const targetAccount = accounts.find(a => a.id === accountId) as KiroAccount | undefined
+    static async switchAccount(account: KiroAccount): Promise<SwitchAccountResult> {
+        logInfo(`[Kiro Switch] Starting switch to: ${account.email}`)
 
-        if (!targetAccount || targetAccount.platform !== 'kiro') {
-            throw new Error('Account not found or not a Kiro account')
-        }
-
-        logInfo(`[Kiro Switch] Starting switch to: ${targetAccount.email}`)
-
-        // 1. Ensure account has bound machine ID (device fingerprint isolation)
         const machineService = MachineIdService.getInstance()
-        let machineId = await machineService.getMachineIdForAccount(accountId)
-        
+        let machineId = await machineService.getMachineIdForAccount(account.id)
+        const credentials = { ...account.credentials }
+
         if (!machineId) {
             machineId = await machineService.generateMachineId()
-            await machineService.bindMachineId(accountId, machineId)
-            logInfo(`[Kiro Switch] Generated and bound new machine ID for account: ${targetAccount.email}`)
+            await machineService.bindMachineId(account.id, machineId)
+            logInfo(`[Kiro Switch] Generated and bound new machine ID for account: ${account.email}`)
         }
 
-        // 2. Refresh token if needed
-        if (targetAccount.credentials.refreshToken) {
+        if (credentials.refreshToken) {
             try {
                 const tokenResult = await invoke<{
                     accessToken: string
                     refreshToken?: string
                     expiresIn: number
                 }>('kiro_refresh_token', {
-                    refreshToken: targetAccount.credentials.refreshToken,
-                    clientId: targetAccount.credentials.clientId || '',
-                    clientSecret: targetAccount.credentials.clientSecret || ''
+                    refreshToken: credentials.refreshToken,
+                    clientId: credentials.clientId || '',
+                    clientSecret: credentials.clientSecret || ''
                 })
 
-                const now = Date.now()
-                await store.updateAccount(accountId, {
-                    credentials: {
-                        ...targetAccount.credentials,
-                        accessToken: tokenResult.accessToken,
-                        refreshToken: tokenResult.refreshToken || targetAccount.credentials.refreshToken,
-                        expiresAt: now + (tokenResult.expiresIn * 1000)
-                    }
-                })
-
-                // Update targetAccount reference with new credentials
-                targetAccount.credentials.accessToken = tokenResult.accessToken
+                credentials.accessToken = tokenResult.accessToken
                 if (tokenResult.refreshToken) {
-                    targetAccount.credentials.refreshToken = tokenResult.refreshToken
+                    credentials.refreshToken = tokenResult.refreshToken
                 }
+                credentials.expiresAt = Date.now() + (tokenResult.expiresIn * 1000)
 
-                logInfo(`[Kiro Switch] Token refreshed successfully`)
-            } catch (e) {
-                logWarn(`[Kiro Switch] Token refresh failed, continuing with existing token:`, e)
+                logInfo('[Kiro Switch] Token refreshed successfully')
+            } catch (error) {
+                logWarn('[Kiro Switch] Token refresh failed, continuing with existing token:', error)
             }
         }
 
-        // 3. Write credentials to AWS SSO cache
         try {
             await invoke('switch_kiro_account', {
-                accessToken: targetAccount.credentials.accessToken,
-                refreshToken: targetAccount.credentials.refreshToken || '',
-                clientId: targetAccount.credentials.clientId || '',
-                clientSecret: targetAccount.credentials.clientSecret || '',
-                region: targetAccount.credentials.region,
-                startUrl: undefined, // Use default
-                authMethod: targetAccount.idp === 'BuilderId' ? 'IdC' : 'social',
-                provider: targetAccount.idp
+                accessToken: credentials.accessToken,
+                refreshToken: credentials.refreshToken || '',
+                clientId: credentials.clientId || '',
+                clientSecret: credentials.clientSecret || '',
+                region: credentials.region,
+                startUrl: undefined,
+                authMethod: account.idp === 'BuilderId' ? 'IdC' : 'social',
+                provider: account.idp
             })
-            logInfo(`[Kiro Switch] Credentials written to AWS SSO cache`)
-        } catch (e) {
-            logError(`[Kiro Switch] Failed to write SSO cache:`, e)
-            throw new Error(`切换账号失败: ${e}`)
+            logInfo('[Kiro Switch] Credentials written to AWS SSO cache')
+        } catch (error) {
+            logError('[Kiro Switch] Failed to write SSO cache:', error)
+            throw new Error(`Failed to switch Kiro account: ${error}`)
         }
 
-        // 4. Batch update: deactivate all Kiro accounts, then activate target
-        const kiroAccounts = accounts.filter(a => a.platform === 'kiro')
-        
-        logInfo(`[Kiro Switch] Updating ${kiroAccounts.length} Kiro accounts`)
-        
-        // Deactivate all accounts first
-        for (const acc of kiroAccounts) {
-            if (acc.id !== accountId && acc.isActive) {
-                await store.updateAccount(acc.id, {
-                    isActive: false
-                })
-                logInfo(`[Kiro Switch] Deactivated: ${acc.email}`)
-            }
+        logInfo('[Kiro Switch] Switch completed successfully')
+
+        return {
+            credentials,
+            lastUsedAt: Date.now()
         }
-
-        // Activate target account
-        const now = Date.now()
-        await store.updateAccount(accountId, {
-            isActive: true,
-            lastUsedAt: now
-        })
-
-        logInfo(`[Kiro Switch] Activated: ${targetAccount.email}`)
-        logInfo(`[Kiro Switch] Switch completed successfully`)
     }
 
     /**
-     * Refresh account token and quota
+     * Refresh account token and quota.
+     * Returns the patch payload and lets the store decide how to persist it.
      */
     static async refreshToken(account: KiroAccount): Promise<RefreshTokenResult> {
         try {
@@ -179,17 +147,15 @@ export class KiroAccountService {
                 }
             }
 
-            // Ensure account has bound machine ID
             const machineService = MachineIdService.getInstance()
             let machineId = await machineService.getMachineIdForAccount(account.id)
-            
+
             if (!machineId) {
                 machineId = await machineService.generateMachineId()
                 await machineService.bindMachineId(account.id, machineId)
                 logInfo(`[Kiro Refresh] Generated and bound new machine ID for account: ${account.email}`)
             }
 
-            // 1. 刷新 token
             const tokenResult = await invoke<{
                 accessToken: string
                 refreshToken?: string
@@ -200,54 +166,49 @@ export class KiroAccountService {
                 clientSecret: account.credentials.clientSecret || ''
             })
 
-            // 2. 获取最新配额
             const quotaResult = await invoke<any>('kiro_check_quota', {
                 accessToken: tokenResult.accessToken
             })
 
-            // 3. 更新账户数据
-            const { usePlatformStore } = await import('@/stores/usePlatformStore')
-            const store = usePlatformStore.getState()
             const now = Date.now()
-
-            await store.updateAccount(account.id, {
-                credentials: {
-                    ...account.credentials,
-                    accessToken: tokenResult.accessToken,
-                    refreshToken: tokenResult.refreshToken || account.credentials.refreshToken,
-                    expiresAt: now + (tokenResult.expiresIn * 1000)
-                },
-                usage: {
-                    current: quotaResult.currentUsage || 0,
-                    limit: quotaResult.totalLimit || 25,
-                    percentUsed: quotaResult.percentUsed || 0,
-                    lastUpdated: now,
-                    baseLimit: quotaResult.baseLimit,
-                    baseCurrent: quotaResult.baseCurrent,
-                    freeTrialLimit: quotaResult.freeTrialLimit,
-                    freeTrialCurrent: quotaResult.freeTrialCurrent,
-                    freeTrialExpiry: quotaResult.freeTrialExpiry,
-                    bonuses: quotaResult.bonuses,
-                    nextResetDate: quotaResult.nextResetDate,
-                    resourceDetail: quotaResult.resourceDetail
-                },
-                subscription: {
-                    type: quotaResult.subscriptionType || 'Free',
-                    title: quotaResult.subscriptionTitle,
-                    expiresAt: quotaResult.subscriptionExpiresAt,
-                    daysRemaining: quotaResult.daysRemaining,
-                    autoRenew: quotaResult.subscriptionAutoRenew
-                },
-                email: quotaResult.email || account.email,
-                userId: quotaResult.userId,
-                lastUsedAt: now
-            })
 
             return {
                 success: true,
                 accessToken: tokenResult.accessToken,
                 refreshToken: tokenResult.refreshToken,
-                expiresIn: tokenResult.expiresIn
+                expiresIn: tokenResult.expiresIn,
+                updatedAccount: {
+                    credentials: {
+                        ...account.credentials,
+                        accessToken: tokenResult.accessToken,
+                        refreshToken: tokenResult.refreshToken || account.credentials.refreshToken,
+                        expiresAt: now + (tokenResult.expiresIn * 1000)
+                    },
+                    usage: {
+                        current: quotaResult.currentUsage || 0,
+                        limit: quotaResult.totalLimit || 25,
+                        percentUsed: quotaResult.percentUsed || 0,
+                        lastUpdated: now,
+                        baseLimit: quotaResult.baseLimit,
+                        baseCurrent: quotaResult.baseCurrent,
+                        freeTrialLimit: quotaResult.freeTrialLimit,
+                        freeTrialCurrent: quotaResult.freeTrialCurrent,
+                        freeTrialExpiry: quotaResult.freeTrialExpiry,
+                        bonuses: quotaResult.bonuses,
+                        nextResetDate: quotaResult.nextResetDate,
+                        resourceDetail: quotaResult.resourceDetail
+                    },
+                    subscription: {
+                        type: quotaResult.subscriptionType || 'Free',
+                        title: quotaResult.subscriptionTitle,
+                        expiresAt: quotaResult.subscriptionExpiresAt,
+                        daysRemaining: quotaResult.daysRemaining,
+                        autoRenew: quotaResult.subscriptionAutoRenew
+                    },
+                    email: quotaResult.email || account.email,
+                    userId: quotaResult.userId,
+                    lastUsedAt: now
+                }
             }
         } catch (error) {
             return {
@@ -258,7 +219,7 @@ export class KiroAccountService {
     }
 
     /**
-     * Check account status and quota
+     * Check account status and quota.
      */
     static async checkStatus(account: KiroAccount): Promise<CheckStatusResult> {
         try {
@@ -266,7 +227,6 @@ export class KiroAccountService {
                 accessToken: account.credentials.accessToken
             })
 
-            // Check if account is banned
             const isBanned = result.error?.includes('UnauthorizedException') ||
                 result.error?.includes('AccountSuspendedException')
 
@@ -279,7 +239,6 @@ export class KiroAccountService {
                 }
             }
 
-            // Parse usage data
             const usage: KiroAccount['usage'] = {
                 current: result.current || 0,
                 limit: result.limit || 25,
@@ -295,7 +254,6 @@ export class KiroAccountService {
                 resourceDetail: result.resourceDetail
             }
 
-            // Parse subscription data
             const subscription: KiroAccount['subscription'] = {
                 type: result.subscriptionType || 'Free',
                 title: result.subscriptionTitle,
@@ -328,7 +286,7 @@ export class KiroAccountService {
     }
 
     /**
-     * Batch refresh tokens (background operation)
+     * Batch refresh tokens (background operation).
      */
     static async batchRefresh(
         accounts: Array<{
@@ -339,11 +297,10 @@ export class KiroAccountService {
         concurrency: number = 10
     ): Promise<BatchRefreshResult> {
         try {
-            const result = await invoke<BatchRefreshResult>('kiro_batch_refresh', {
+            return await invoke<BatchRefreshResult>('kiro_batch_refresh', {
                 accounts,
                 concurrency
             })
-            return result
         } catch (error) {
             return {
                 successCount: 0,
@@ -358,7 +315,7 @@ export class KiroAccountService {
     }
 
     /**
-     * Batch check account status (background operation)
+     * Batch check account status (background operation).
      */
     static async batchCheck(
         accounts: Array<{
@@ -370,11 +327,10 @@ export class KiroAccountService {
         concurrency: number = 10
     ): Promise<BatchCheckResult> {
         try {
-            const result = await invoke<BatchCheckResult>('kiro_batch_check', {
+            return await invoke<BatchCheckResult>('kiro_batch_check', {
                 accounts,
                 concurrency
             })
-            return result
         } catch (error) {
             return {
                 successCount: 0,
@@ -389,17 +345,17 @@ export class KiroAccountService {
     }
 
     /**
-     * Check if token is expiring soon (within 5 minutes)
+     * Check if token is expiring soon (within 5 minutes).
      */
     static isTokenExpiring(account: KiroAccount): boolean {
         if (!account.credentials.expiresAt) return false
         const now = Date.now()
         const expiresIn = account.credentials.expiresAt - now
-        return expiresIn < 5 * 60 * 1000 // 5 minutes
+        return expiresIn < 5 * 60 * 1000
     }
 
     /**
-     * Check if token is expired
+     * Check if token is expired.
      */
     static isTokenExpired(account: KiroAccount): boolean {
         if (!account.credentials.expiresAt) return false

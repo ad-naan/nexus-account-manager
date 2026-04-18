@@ -175,7 +175,7 @@ export const AccountCard = memo(function AccountCard({
         {/* 底部操作栏 */}
         <div className={cn(
           "flex items-center justify-between pt-3 border-t border-border/50",
-          "opacity-0 group-hover:opacity-100 transition-opacity"
+          "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
         )}>
           {/* 左侧操作 */}
           <div className="flex items-center gap-0.5">

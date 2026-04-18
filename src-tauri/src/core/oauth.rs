@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
-use reqwest::Client;
 use crate::utils::logger::{log_info, log_warn};
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
 
 // Google OAuth configuration
 // Using the client ID from the original project source code provided
@@ -39,7 +39,7 @@ impl UserInfo {
                 return Some(name.clone());
             }
         }
-        
+
         // If name is empty, combine given_name and family_name
         match (&self.given_name, &self.family_name) {
             (Some(given), Some(family)) => Some(format!("{} {}", given, family)),
@@ -67,8 +67,9 @@ pub fn get_auth_url(redirect_uri: &str, state: &str) -> String {
         "https://www.googleapis.com/auth/userinfo.email",
         "https://www.googleapis.com/auth/userinfo.profile",
         "https://www.googleapis.com/auth/cclog",
-        "https://www.googleapis.com/auth/experimentsandconfigs"
-    ].join(" ");
+        "https://www.googleapis.com/auth/experimentsandconfigs",
+    ]
+    .join(" ");
 
     let params = vec![
         ("client_id", CLIENT_ID),
@@ -80,7 +81,7 @@ pub fn get_auth_url(redirect_uri: &str, state: &str) -> String {
         ("include_granted_scopes", "true"),
         ("state", state),
     ];
-    
+
     let url = url::Url::parse_with_params(AUTH_URL, &params).expect("Invalid Auth URL");
     url.to_string()
 }
@@ -88,7 +89,7 @@ pub fn get_auth_url(redirect_uri: &str, state: &str) -> String {
 /// Exchange authorization code for token
 pub async fn exchange_code(code: &str, redirect_uri: &str) -> Result<TokenResponse, String> {
     let client = get_long_client();
-    
+
     let params = [
         ("client_id", CLIENT_ID),
         ("client_secret", CLIENT_SECRET),
@@ -102,19 +103,25 @@ pub async fn exchange_code(code: &str, redirect_uri: &str) -> Result<TokenRespon
         .form(&params)
         .send()
         .await
-        .map_err(|e| format!("Token exchange request failed: {}. Please check your network connection.", e))?;
+        .map_err(|e| {
+            format!(
+                "Token exchange request failed: {}. Please check your network connection.",
+                e
+            )
+        })?;
 
     if response.status().is_success() {
-        let token_res = response.json::<TokenResponse>()
+        let token_res = response
+            .json::<TokenResponse>()
             .await
             .map_err(|e| format!("Token parsing failed: {}", e))?;
-        
+
         log_info("Token exchange successful");
-        
+
         if token_res.refresh_token.is_none() {
             log_warn("Google did not return a refresh_token");
         }
-        
+
         Ok(token_res)
     } else {
         let error_text = response.text().await.unwrap_or_default();
@@ -125,14 +132,14 @@ pub async fn exchange_code(code: &str, redirect_uri: &str) -> Result<TokenRespon
 /// Refresh access_token using refresh_token
 pub async fn refresh_access_token(refresh_token: &str) -> Result<TokenResponse, String> {
     let client = get_long_client();
-    
+
     let params = [
         ("client_id", CLIENT_ID),
         ("client_secret", CLIENT_SECRET),
         ("refresh_token", refresh_token),
         ("grant_type", "refresh_token"),
     ];
-    
+
     let response = client
         .post(TOKEN_URL)
         .form(&params)
@@ -145,8 +152,11 @@ pub async fn refresh_access_token(refresh_token: &str) -> Result<TokenResponse, 
             .json::<TokenResponse>()
             .await
             .map_err(|e| format!("Refresh data parsing failed: {}", e))?;
-        
-        log_info(&format!("Token refreshed, expires in: {}s", token_data.expires_in));
+
+        log_info(&format!(
+            "Token refreshed, expires in: {}s",
+            token_data.expires_in
+        ));
         Ok(token_data)
     } else {
         let error_text = response.text().await.unwrap_or_default();
@@ -157,7 +167,7 @@ pub async fn refresh_access_token(refresh_token: &str) -> Result<TokenResponse, 
 /// Get user info
 pub async fn get_user_info(access_token: &str) -> Result<UserInfo, String> {
     let client = get_client();
-    
+
     let response = client
         .get(USERINFO_URL)
         .bearer_auth(access_token)
@@ -166,7 +176,8 @@ pub async fn get_user_info(access_token: &str) -> Result<UserInfo, String> {
         .map_err(|e| format!("User info request failed: {}", e))?;
 
     if response.status().is_success() {
-        response.json::<UserInfo>()
+        response
+            .json::<UserInfo>()
             .await
             .map_err(|e| format!("User info parsing failed: {}", e))
     } else {

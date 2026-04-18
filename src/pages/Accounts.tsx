@@ -1,12 +1,25 @@
+import { useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { Card, CardContent } from '@/components/ui/card'
 import { getAllPlatforms, getPlatform } from '@/platforms/registry'
-import { Button } from '@/components/ui/button'
+import { usePlatformStore } from '@/stores/usePlatformStore'
+import { cn } from '@/lib/utils'
 
 export function Accounts() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const accounts = usePlatformStore((state) => state.accounts)
+  const platforms = getAllPlatforms()
   const selectedPlatformId = searchParams.get('platform') || getAllPlatforms()[0]?.id
   const selectedPlatform = getPlatform(selectedPlatformId)
-  const platforms = getAllPlatforms()
+
+  const platformStats = useMemo(
+    () =>
+      platforms.map((platform) => ({
+        platform,
+        count: accounts.filter((account) => account.platform === platform.id).length,
+      })),
+    [accounts, platforms],
+  )
 
   if (!selectedPlatform) {
     return <div>Platform not found</div>
@@ -16,27 +29,67 @@ export function Accounts() {
 
   return (
     <div className="space-y-6">
-      {/* Platform Tabs */}
-      <div className="flex gap-2 border-b border-border pb-2">
-        {platforms.map((platform) => {
-          const Icon = platform.icon
-          const isActive = platform.id === selectedPlatformId
+      <Card className="border-border/60 bg-card/60 shadow-sm">
+        <CardContent className="space-y-5 p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Platform Workspace</p>
+              <h1 className="text-2xl font-bold tracking-tight">{selectedPlatform.name}</h1>
+              <p className="max-w-3xl text-sm text-muted-foreground">{selectedPlatform.description}</p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2 text-sm text-muted-foreground">
+              {platformStats.reduce((sum, item) => sum + item.count, 0)} accounts across {platforms.length} platforms
+            </div>
+          </div>
 
-          return (
-            <Button
-              key={platform.id}
-              variant={isActive ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setSearchParams({ platform: platform.id })}
-            >
-              <Icon className="mr-2 h-4 w-4" />
-              {platform.name}
-            </Button>
-          )
-        })}
-      </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {platformStats.map(({ platform, count }) => {
+              const Icon = platform.icon
+              const isActive = platform.id === selectedPlatformId
 
-      {/* Platform Content */}
+              return (
+                <button
+                  key={platform.id}
+                  type="button"
+                  onClick={() => setSearchParams({ platform: platform.id })}
+                  className={cn(
+                    'group rounded-2xl border p-4 text-left transition-all',
+                    'hover:border-primary/40 hover:shadow-md',
+                    isActive
+                      ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/30'
+                      : 'border-border/60 bg-background/50',
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div
+                      className={cn(
+                        'rounded-xl p-3 transition-colors',
+                        isActive ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground',
+                      )}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <span
+                      className={cn(
+                        'rounded-full px-2.5 py-1 text-xs font-medium',
+                        isActive ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+                      )}
+                    >
+                      {count}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 space-y-1">
+                    <h2 className="font-semibold leading-tight text-foreground">{platform.name}</h2>
+                    <p className="line-clamp-2 text-sm text-muted-foreground">{platform.description}</p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       <AccountListComponent />
     </div>
   )

@@ -43,6 +43,7 @@ interface PlatformStore {
   getAccountsByPlatform: (platform: string) => Account[]
   
   // Kiro-specific operations
+  switchKiroAccount: (id: string) => Promise<void>
   refreshKiroToken: (id: string) => Promise<boolean>
   checkKiroStatus: (id: string) => Promise<void>
   batchRefreshKiroTokens: (ids: string[]) => Promise<void>
@@ -78,7 +79,7 @@ const toFrontend = (backend: BackendAccount): Account => {
 
   const common = {
     id,
-    platform: platform as 'antigravity' | 'kiro' | 'claude' | 'codex' | 'gemini',
+    platform: platform as Account['platform'],
     name: name || undefined,
     email,
     avatar: avatar || undefined,
@@ -188,6 +189,32 @@ export const usePlatformStore = create<PlatformStore>((set, get) => ({
 
   // ==================== Kiro-specific operations ====================
 
+  switchKiroAccount: async (id) => {
+    const accounts = get().accounts
+    const targetAccount = accounts.find(a => a.id === id) as KiroAccount | undefined
+    if (!targetAccount || targetAccount.platform !== 'kiro') {
+      throw new Error('Account not found or not a Kiro account')
+    }
+
+    const result = await KiroAccountService.switchAccount(targetAccount)
+    const activeKiroAccounts = accounts.filter(
+      acc => acc.platform === 'kiro' && acc.id !== id && acc.isActive
+    )
+
+    for (const acc of activeKiroAccounts) {
+      await get().updateAccount(acc.id, { isActive: false })
+    }
+
+    await get().updateAccount(id, {
+      isActive: true,
+      lastUsedAt: result.lastUsedAt,
+      credentials: result.credentials
+    } as Partial<KiroAccount>)
+
+    const activeAccount = get().accounts.find(acc => acc.id === id) || null
+    set({ activeAccount })
+  },
+
   refreshKiroToken: async (id) => {
     const account = get().accounts.find(a => a.id === id) as KiroAccount | undefined
     if (!account || account.platform !== 'kiro') return false
@@ -203,19 +230,14 @@ export const usePlatformStore = create<PlatformStore>((set, get) => ({
 
     try {
       const result = await KiroAccountService.refreshToken(account)
+      const checkedAt = Date.now()
 
-      if (result.success && result.accessToken) {
-        // Update account with new credentials
+      if (result.success && result.updatedAccount) {
         const updated: Partial<KiroAccount> = {
-          credentials: {
-            ...account.credentials,
-            accessToken: result.accessToken,
-            refreshToken: result.refreshToken || account.credentials.refreshToken,
-            expiresAt: Date.now() + (result.expiresIn || 3600) * 1000
-          },
+          ...result.updatedAccount,
           status: 'active',
           lastError: undefined,
-          lastCheckedAt: Date.now()
+          lastCheckedAt: checkedAt
         }
 
         await get().updateAccount(id, updated)
@@ -225,7 +247,7 @@ export const usePlatformStore = create<PlatformStore>((set, get) => ({
         await get().updateAccount(id, {
           status: 'error',
           lastError: result.error,
-          lastCheckedAt: Date.now()
+          lastCheckedAt: checkedAt
         } as Partial<KiroAccount>)
         return false
       }
@@ -296,7 +318,13 @@ export const usePlatformStore = create<PlatformStore>((set, get) => ({
   batchRefreshKiroTokens: async (ids) => {
     const kiroAccounts = ids
       .map(id => get().accounts.find(a => a.id === id))
-      .filter((acc): acc is KiroAccount => acc?.platform === 'kiro' && !!acc.credentials.refreshToken)
+      .filter((acc): acc is KiroAccount => {
+        if (!acc || acc.platform !== 'kiro') {
+          return false
+        }
+        const kiroAccount = acc as KiroAccount
+        return Boolean(kiroAccount.credentials?.refreshToken)
+      })
 
     if (kiroAccounts.length === 0) return
 

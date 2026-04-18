@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 // use std::collections::HashMap; // removed
 
@@ -8,7 +8,8 @@ const START_URL: &str = "https://view.awsapps.com/start";
 const REGION: &str = "us-east-1";
 
 // User Agent matching Kiro's implementation
-const CLI_USER_AGENT: &str = "aws-cli/2.15.0 Python/3.11.6 Windows/10 exe/AMD64 prompt/off command/codecatalyst.login";
+const CLI_USER_AGENT: &str =
+    "aws-cli/2.15.0 Python/3.11.6 Windows/10 exe/AMD64 prompt/off command/codecatalyst.login";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -31,8 +32,8 @@ struct ClientRegistrationResponse {
 }
 
 // ... imports
-use tokio::sync::mpsc::Sender;
 use std::sync::Mutex;
+use tokio::sync::mpsc::Sender;
 
 // ... existing structs
 
@@ -78,22 +79,23 @@ fn get_client() -> &'static Client {
 pub async fn register_client() -> Result<(String, String), String> {
     let client = get_client();
     let url = format!("{}/client/register", OIDC_BASE_URL);
-    
+
     let payload = serde_json::json!({
         "clientName": "Nexus Account Manager",
         "clientType": "public",
         "scopes": [
-            "codewhisperer:analysis", 
-            "codewhisperer:completions", 
-            "codewhisperer:conversations", 
-            "codewhisperer:taskassist", 
+            "codewhisperer:analysis",
+            "codewhisperer:completions",
+            "codewhisperer:conversations",
+            "codewhisperer:taskassist",
             "codewhisperer:transformations"
         ],
         "grantTypes": ["urn:ietf:params:oauth:grant-type:device_code", "refresh_token"],
         "issuerUrl": START_URL
     });
 
-    let res = client.post(&url)
+    let res = client
+        .post(&url)
         .json(&payload)
         .send()
         .await
@@ -107,7 +109,10 @@ pub async fn register_client() -> Result<(String, String), String> {
     Ok((data.clientId, data.clientSecret))
 }
 
-pub async fn start_device_authorization(client_id: &str, client_secret: &str) -> Result<DeviceAuthResponse, String> {
+pub async fn start_device_authorization(
+    client_id: &str,
+    client_secret: &str,
+) -> Result<DeviceAuthResponse, String> {
     let client = get_client();
     let url = format!("{}/device_authorization", OIDC_BASE_URL);
 
@@ -117,7 +122,8 @@ pub async fn start_device_authorization(client_id: &str, client_secret: &str) ->
         "startUrl": START_URL
     });
 
-    let res = client.post(&url)
+    let res = client
+        .post(&url)
         .json(&payload)
         .send()
         .await
@@ -132,21 +138,21 @@ pub async fn start_device_authorization(client_id: &str, client_secret: &str) ->
 }
 
 pub async fn poll_token(
-    client_id: &str, 
-    client_secret: &str, 
-    device_code: &str, 
-    _interval_secs: u64
+    client_id: &str,
+    client_secret: &str,
+    device_code: &str,
+    _interval_secs: u64,
 ) -> Result<KiroTokenData, String> {
     let client = get_client();
     let url = format!("{}/token", OIDC_BASE_URL);
-    
+
     // Poll loop needs to be handled by caller or we loop once here?
     // Since this is an async function called from command, we can loop here with sleep.
     // But we need timeout.
-    
+
     // In actual implementation (command wrapper), we might want to call this ONCE per interval.
     // But for simplicity, let's just make a single request function check_token_status.
-    
+
     let payload = serde_json::json!({
         "clientId": client_id,
         "clientSecret": client_secret,
@@ -154,7 +160,8 @@ pub async fn poll_token(
         "deviceCode": device_code
     });
 
-    let res = client.post(&url)
+    let res = client
+        .post(&url)
         .json(&payload)
         .send()
         .await
@@ -191,14 +198,14 @@ pub async fn poll_token(
 
 pub async fn refresh_token(
     refresh_token: &str,
-    client_id: &str, 
-    client_secret: &str
+    client_id: &str,
+    client_secret: &str,
 ) -> Result<KiroTokenData, String> {
-    use crate::utils::logger::{log_info, log_error};
-    
+    use crate::utils::logger::{log_error, log_info};
+
     let client = get_client();
     let url = format!("{}/token", OIDC_BASE_URL);
-    
+
     let payload = serde_json::json!({
         "clientId": client_id,
         "clientSecret": client_secret,
@@ -208,7 +215,8 @@ pub async fn refresh_token(
 
     log_info("Refreshing Kiro token...");
 
-    let res = client.post(&url)
+    let res = client
+        .post(&url)
         .json(&payload)
         .send()
         .await
@@ -223,18 +231,20 @@ pub async fn refresh_token(
 
     // 先获取原始文本，用于调试
     let response_text = res.text().await.map_err(|e| e.to_string())?;
-    log_info(&format!("Token response (first 200 chars): {}", &response_text[..200.min(response_text.len())]));
-    
+    log_info(&format!(
+        "Token response (first 200 chars): {}",
+        &response_text[..200.min(response_text.len())]
+    ));
+
     // 尝试解析 JSON
-    let data: TokenResponse = serde_json::from_str(&response_text)
-        .map_err(|e| {
-            log_error(&format!("Failed to parse token response: {}", e));
-            log_error(&format!("Response body: {}", response_text));
-            format!("解析响应失败: {}. 请检查 Token 格式是否正确", e)
-        })?;
-    
+    let data: TokenResponse = serde_json::from_str(&response_text).map_err(|e| {
+        log_error(&format!("Failed to parse token response: {}", e));
+        log_error(&format!("Response body: {}", response_text));
+        format!("解析响应失败: {}. 请检查 Token 格式是否正确", e)
+    })?;
+
     log_info("Token refreshed successfully");
-    
+
     Ok(KiroTokenData {
         access_token: data.accessToken,
         refresh_token: data.refreshToken.or(Some(refresh_token.to_string())),
@@ -262,22 +272,26 @@ pub struct KiroQuotaData {
 
 pub async fn get_usage_limits(access_token: &str) -> Result<KiroQuotaData, String> {
     use crate::utils::logger::{log_info, log_warn};
-    
+
     // 主端点和备用端点
     let primary_url = "https://codewhisperer.us-east-1.amazonaws.com/getUsageLimits";
     let fallback_url = "https://us-east-1.codewhisperer.aws.amazon.com/getUsageLimits";
-    
+
     let client = get_client();
-    
+
     let params = [
         ("origin", "AI_EDITOR"),
         ("resourceType", "AGENTIC_REQUEST"),
-        ("isEmailRequired", "true")
+        ("isEmailRequired", "true"),
     ];
-    
+
     // 尝试主端点
-    log_info(&format!("[Kiro] Fetching usage limits from primary endpoint: {}", primary_url));
-    let res_result = client.get(primary_url)
+    log_info(&format!(
+        "[Kiro] Fetching usage limits from primary endpoint: {}",
+        primary_url
+    ));
+    let res_result = client
+        .get(primary_url)
         .query(&params)
         .header("Authorization", format!("Bearer {}", access_token))
         .header("Accept", "application/json")
@@ -290,11 +304,18 @@ pub async fn get_usage_limits(access_token: &str) -> Result<KiroQuotaData, Strin
     let res = match res_result {
         Ok(response) => {
             let status = response.status();
-            log_info(&format!("[Kiro] Primary endpoint response status: {}", status));
-            
+            log_info(&format!(
+                "[Kiro] Primary endpoint response status: {}",
+                status
+            ));
+
             if status == 403 {
-                log_warn(&format!("[Kiro] Primary endpoint returned 403, trying fallback: {}", fallback_url));
-                client.get(fallback_url)
+                log_warn(&format!(
+                    "[Kiro] Primary endpoint returned 403, trying fallback: {}",
+                    fallback_url
+                ));
+                client
+                    .get(fallback_url)
                     .query(&params)
                     .header("Authorization", format!("Bearer {}", access_token))
                     .header("Accept", "application/json")
@@ -308,8 +329,12 @@ pub async fn get_usage_limits(access_token: &str) -> Result<KiroQuotaData, Strin
             }
         }
         Err(e) => {
-            log_warn(&format!("[Kiro] Primary endpoint failed with error: {}, trying fallback: {}", e, fallback_url));
-            client.get(fallback_url)
+            log_warn(&format!(
+                "[Kiro] Primary endpoint failed with error: {}, trying fallback: {}",
+                e, fallback_url
+            ));
+            client
+                .get(fallback_url)
                 .query(&params)
                 .header("Authorization", format!("Bearer {}", access_token))
                 .header("Accept", "application/json")
@@ -324,43 +349,70 @@ pub async fn get_usage_limits(access_token: &str) -> Result<KiroQuotaData, Strin
     if !res.status().is_success() {
         let status = res.status();
         let error_text = res.text().await.unwrap_or_default();
-        log_warn(&format!("[Kiro] Usage API failed: {} - {}", status, error_text));
+        log_warn(&format!(
+            "[Kiro] Usage API failed: {} - {}",
+            status, error_text
+        ));
         return Err(format!("Usage API failed: {}", status));
     }
 
     let json: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
-    
-    log_info(&format!("[Kiro] Usage API response: {}", serde_json::to_string_pretty(&json).unwrap_or_default()));
-    
+
+    log_info(&format!(
+        "[Kiro] Usage API response: {}",
+        serde_json::to_string_pretty(&json).unwrap_or_default()
+    ));
+
     // Parse the complex response structure manually to extract key metrics
     // Refer to Kiro's parsing logic (lines 2045-2067 in index.ts)
-    
+
     // Default values
     let mut total_limit = 0.0;
     let mut current_usage = 0.0;
-    
+
     if let Some(breakdown_list) = json.get("usageBreakdownList").and_then(|v| v.as_array()) {
         for item in breakdown_list {
-            let resource_type = item.get("resourceType").or(item.get("type")).and_then(|v| v.as_str());
+            let resource_type = item
+                .get("resourceType")
+                .or(item.get("type"))
+                .and_then(|v| v.as_str());
             if resource_type == Some("CREDIT") {
                 // Base
-                total_limit += item.get("usageLimitWithPrecision").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                current_usage += item.get("currentUsageWithPrecision").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                
+                total_limit += item
+                    .get("usageLimitWithPrecision")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
+                current_usage += item
+                    .get("currentUsageWithPrecision")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
+
                 // Free Trial
                 if let Some(ft) = item.get("freeTrialInfo") {
                     if ft.get("freeTrialStatus").and_then(|v| v.as_str()) == Some("ACTIVE") {
-                       total_limit += ft.get("usageLimitWithPrecision").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                       current_usage += ft.get("currentUsageWithPrecision").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                        total_limit += ft
+                            .get("usageLimitWithPrecision")
+                            .and_then(|v| v.as_f64())
+                            .unwrap_or(0.0);
+                        current_usage += ft
+                            .get("currentUsageWithPrecision")
+                            .and_then(|v| v.as_f64())
+                            .unwrap_or(0.0);
                     }
                 }
-                
+
                 // Bonuses
                 if let Some(bonuses) = item.get("bonuses").and_then(|v| v.as_array()) {
                     for b in bonuses {
                         if b.get("status").and_then(|v| v.as_str()) == Some("ACTIVE") {
-                            total_limit += b.get("usageLimitWithPrecision").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                            current_usage += b.get("currentUsageWithPrecision").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                            total_limit += b
+                                .get("usageLimitWithPrecision")
+                                .and_then(|v| v.as_f64())
+                                .unwrap_or(0.0);
+                            current_usage += b
+                                .get("currentUsageWithPrecision")
+                                .and_then(|v| v.as_f64())
+                                .unwrap_or(0.0);
                         }
                     }
                 }
@@ -368,36 +420,59 @@ pub async fn get_usage_limits(access_token: &str) -> Result<KiroQuotaData, Strin
         }
     }
 
-    let sub_title = json.pointer("/subscriptionInfo/subscriptionTitle")
-        .and_then(|v| v.as_str()).unwrap_or("Free").to_string();
-    
-    let sub_type = if sub_title.to_uppercase().contains("PRO") { "Pro".to_string() } else { "Free".to_string() };
+    let sub_title = json
+        .pointer("/subscriptionInfo/subscriptionTitle")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Free")
+        .to_string();
+
+    let sub_type = if sub_title.to_uppercase().contains("PRO") {
+        "Pro".to_string()
+    } else {
+        "Free".to_string()
+    };
 
     let mut days_remaining = None;
     if let Some(reset_date_str) = json.get("nextDateReset").and_then(|v| v.as_str()) {
         if let Ok(date) = chrono::DateTime::parse_from_rfc3339(reset_date_str) {
-             let now = chrono::Utc::now();
-             let duration = date.with_timezone(&chrono::Utc) - now;
-             days_remaining = Some(duration.num_days());
+            let now = chrono::Utc::now();
+            let duration = date.with_timezone(&chrono::Utc) - now;
+            days_remaining = Some(duration.num_days());
         }
     } else if let Some(reset_ts) = json.get("nextDateReset").and_then(|v| v.as_i64()) {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
         let diff = reset_ts - now;
         days_remaining = Some(diff / 86400);
     }
-    
-    // Parse User Info
-    let email = json.pointer("/userInfo/email").and_then(|v| v.as_str()).map(|s| s.to_string());
-    let user_id = json.pointer("/userInfo/userId").and_then(|v| v.as_str()).map(|s| s.to_string());
 
-    log_info(&format!("[Kiro] Parsed usage data - Email: {:?}, Limit: {}, Current: {}", email, total_limit, current_usage));
+    // Parse User Info
+    let email = json
+        .pointer("/userInfo/email")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let user_id = json
+        .pointer("/userInfo/userId")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    log_info(&format!(
+        "[Kiro] Parsed usage data - Email: {:?}, Limit: {}, Current: {}",
+        email, total_limit, current_usage
+    ));
 
     Ok(KiroQuotaData {
         subscription_type: Some(sub_type),
         subscription_title: Some(sub_title),
         total_limit,
         current_usage,
-        percent_used: if total_limit > 0.0 { current_usage / total_limit } else { 0.0 },
+        percent_used: if total_limit > 0.0 {
+            current_usage / total_limit
+        } else {
+            0.0
+        },
         days_remaining,
         email,
         user_id,

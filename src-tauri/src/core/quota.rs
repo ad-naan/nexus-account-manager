@@ -1,11 +1,12 @@
-use serde::{Deserialize, Serialize};
-use serde_json::json;
 use crate::core::oauth;
 use crate::utils::logger::log_error;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 
-const QUOTA_API_URL: &str = "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels";
+const QUOTA_API_URL: &str =
+    "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels";
 const CLOUD_CODE_BASE_URL: &str = "https://daily-cloudcode-pa.sandbox.googleapis.com";
-const USER_AGENT: &str = "Google-Cloud-Code/1.0.0 (Antigravity)"; 
+const USER_AGENT: &str = "Google-Cloud-Code/1.0.0 (Antigravity)";
 
 #[derive(Debug, Serialize, Deserialize)]
 struct QuotaResponse {
@@ -86,24 +87,33 @@ pub async fn fetch_project_id(access_token: &str) -> (Option<String>, Option<Str
             if res.status().is_success() {
                 if let Ok(data) = res.json::<LoadProjectResponse>().await {
                     let project_id = data.project_id.clone();
-                    let tier = data.paid_tier.and_then(|t| t.id).or_else(|| data.current_tier.and_then(|t| t.id));
+                    let tier = data
+                        .paid_tier
+                        .and_then(|t| t.id)
+                        .or_else(|| data.current_tier.and_then(|t| t.id));
                     return (project_id, tier);
                 }
             }
         }
         Err(e) => log_error(&format!("loadCodeAssist error: {}", e)),
     }
-    
+
     (None, None)
 }
 
-pub async fn fetch_quota(access_token: &str, project_id: Option<&str>) -> Result<(QuotaData, Option<String>), String> {
+pub async fn fetch_quota(
+    access_token: &str,
+    project_id: Option<&str>,
+) -> Result<(QuotaData, Option<String>), String> {
     // Fetch project_id and subscription_tier if not provided
     let (final_project_id, subscription_tier) = match project_id {
         Some(p) => (p.to_string(), None),
         None => {
             let (fetched_pid, fetched_tier) = fetch_project_id(access_token).await;
-            (fetched_pid.unwrap_or_else(|| "bamboo-precept-lgxtn".to_string()), fetched_tier)
+            (
+                fetched_pid.unwrap_or_else(|| "bamboo-precept-lgxtn".to_string()),
+                fetched_tier,
+            )
         }
     };
 
@@ -134,10 +144,11 @@ pub async fn fetch_quota(access_token: &str, project_id: Option<&str>) -> Result
 
     for (name, info) in quota_res.models {
         if let Some(quota_info) = info.quota_info {
-            let percentage = quota_info.remaining_fraction
+            let percentage = quota_info
+                .remaining_fraction
                 .map(|f| (f * 100.0) as i32)
                 .unwrap_or(0);
-            
+
             // Filter interesting models
             if name.contains("gemini") || name.contains("claude") {
                 quota_data.models.push(ModelQuota {
@@ -148,9 +159,9 @@ pub async fn fetch_quota(access_token: &str, project_id: Option<&str>) -> Result
             }
         }
     }
-    
+
     // Set subscription tier
     quota_data.subscription_tier = subscription_tier;
-    
+
     Ok((quota_data, Some(final_project_id)))
 }

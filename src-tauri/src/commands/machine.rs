@@ -37,7 +37,9 @@ pub fn bind_machine_id(
     machine_id: String,
 ) -> Result<(), String> {
     let mut storage = state.storage.lock().unwrap();
-    storage.account_machine_bindings.insert(account_id, machine_id);
+    storage
+        .account_machine_bindings
+        .insert(account_id, machine_id);
     storage.save(&app)?;
     Ok(())
 }

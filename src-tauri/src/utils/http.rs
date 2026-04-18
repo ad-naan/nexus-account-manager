@@ -1,13 +1,13 @@
 //! HTTP 客户端工具
-//! 
+//!
 //! 提供全局单例 HTTP 客户端，支持连接池复用，提升性能
 
+use once_cell::sync::Lazy;
 use reqwest::Client;
 use std::time::Duration;
-use once_cell::sync::Lazy;
 
 /// 全局 HTTP 客户端单例（性能优化：复用连接池）
-/// 
+///
 /// 特性：
 /// - 超时时间：30 秒
 /// - 连接池：每个主机最多保持 10 个空闲连接
@@ -22,12 +22,12 @@ static HTTP_CLIENT: Lazy<Client> = Lazy::new(|| {
 });
 
 /// 获取全局 HTTP 客户端
-/// 
+///
 /// # 示例
-/// 
+///
 /// ```rust
 /// use crate::utils::http::get_client;
-/// 
+///
 /// async fn fetch_data() -> Result<String, String> {
 ///     let client = get_client();
 ///     let response = client.get("https://api.example.com/data")
@@ -43,7 +43,7 @@ pub fn get_client() -> &'static Client {
 }
 
 /// 获取长超时 HTTP 客户端（兼容旧代码）
-/// 
+///
 /// 注意：当前实现与 get_client() 相同，超时已设置为 30 秒
 #[deprecated(since = "1.0.0", note = "请使用 get_client() 代替")]
 #[allow(dead_code)]
@@ -59,7 +59,7 @@ mod tests {
     fn test_client_singleton() {
         let client1 = get_client();
         let client2 = get_client();
-        
+
         // 验证是同一个实例
         assert!(std::ptr::eq(client1, client2));
     }

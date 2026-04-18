@@ -4,27 +4,45 @@ import { kiroConfig } from './kiro'
 import { claudeConfig } from './claude'
 import { codexConfig } from './codex'
 import { geminiConfig } from './gemini'
+import { externalPlatformConfigs } from './external'
 
-// 所有平台配置
+const [
+  githubCopilotConfig,
+  windsurfConfig,
+  cursorConfig,
+  codebuddyConfig,
+  codebuddyCnConfig,
+  qoderConfig,
+  traeConfig,
+  zedConfig,
+  workbuddyConfig,
+] = externalPlatformConfigs
+
 export const platforms: PlatformConfig[] = [
   antigravityConfig,
-  kiroConfig,
-  claudeConfig,
   codexConfig,
+  githubCopilotConfig,
+  windsurfConfig,
+  kiroConfig,
+  cursorConfig,
   geminiConfig,
+  claudeConfig,
+  codebuddyConfig,
+  codebuddyCnConfig,
+  qoderConfig,
+  traeConfig,
+  zedConfig,
+  workbuddyConfig,
 ]
 
-// 平台注册表
 export const platformRegistry: PlatformRegistry = new Map(
-  platforms.map((platform) => [platform.id, platform])
+  platforms.map((platform) => [platform.id, platform]),
 )
 
-// 获取平台配置
 export function getPlatform(id: string): PlatformConfig | undefined {
   return platformRegistry.get(id)
 }
 
-// 获取所有平台
 export function getAllPlatforms(): PlatformConfig[] {
   return platforms
 }

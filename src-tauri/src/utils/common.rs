@@ -1,5 +1,5 @@
 //! 通用工具函数
-//! 
+//!
 //! 提供跨平台复用的工具函数
 
 use uuid::Uuid;
@@ -58,7 +58,10 @@ mod tests {
             extract_username_from_email("user@example.com"),
             Some("user".to_string())
         );
-        assert_eq!(extract_username_from_email("invalid"), Some("invalid".to_string()));
+        assert_eq!(
+            extract_username_from_email("invalid"),
+            Some("invalid".to_string())
+        );
     }
 
     #[test]
@@ -72,7 +75,7 @@ mod tests {
     fn test_token_expiry() {
         let future = chrono::Utc::now().timestamp_millis() + 10000;
         let past = chrono::Utc::now().timestamp_millis() - 10000;
-        
+
         assert!(!is_token_expired(future));
         assert!(is_token_expired(past));
         assert!(is_token_expiring(future, 20)); // 20 seconds threshold

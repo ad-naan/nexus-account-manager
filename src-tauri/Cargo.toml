@@ -44,5 +44,6 @@ sha1 = "0.10"
 toml = "1.0.1"
 
 [target.'cfg(windows)'.dependencies]
+aes-gcm = "0.10"
 winreg = "0.55.0"
-
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }

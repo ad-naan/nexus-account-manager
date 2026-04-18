@@ -1,8 +1,8 @@
 use crate::core::kiro as core_kiro;
-use tauri::{command, AppHandle, Manager};
+use crate::utils::common::{extract_username_from_email, generate_account_id};
 use serde::Serialize;
+use tauri::{command, AppHandle, Manager};
 use tauri_plugin_opener::OpenerExt;
-use crate::utils::common::{generate_account_id, extract_username_from_email};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -44,17 +44,16 @@ pub struct KiroAccount {
 pub async fn kiro_start_device_auth() -> Result<DeviceAuthResult, String> {
     // 1. 注册客户端
     let (client_id, client_secret) = core_kiro::register_client().await?;
-    
+
     // 2. 启动设备授权
     let auth_res = core_kiro::start_device_authorization(&client_id, &client_secret).await?;
-    
+
     // 3. 构建完整的验证 URL (携带 user_code 参数)
     let verification_uri_complete = format!(
         "{}?user_code={}",
-        auth_res.verificationUri,
-        auth_res.userCode
+        auth_res.verificationUri, auth_res.userCode
     );
-    
+
     Ok(DeviceAuthResult {
         device_code: auth_res.deviceCode,
         user_code: auth_res.userCode,
@@ -70,9 +69,9 @@ pub async fn kiro_start_device_auth() -> Result<DeviceAuthResult, String> {
 /// 轮询 Token 并获取完整账号信息
 #[command]
 pub async fn kiro_poll_token(
-    device_code: String, 
-    client_id: String, 
-    client_secret: String
+    device_code: String,
+    client_id: String,
+    client_secret: String,
 ) -> Result<KiroAccountData, String> {
     // 进行一次检查
     // Poll Token
@@ -83,22 +82,26 @@ pub async fn kiro_poll_token(
                 return Ok(KiroAccountData {
                     completed: false,
                     account: None,
-                    error: None
+                    error: None,
                 });
             }
             return Ok(KiroAccountData {
                 completed: false,
                 account: None,
-                error: Some(e)
+                error: Some(e),
             });
         }
     };
 
     // 获取配额和用户信息
-    let quota_res = core_kiro::get_usage_limits(&token_res.access_token).await
+    let quota_res = core_kiro::get_usage_limits(&token_res.access_token)
+        .await
         .map_err(|e| format!("Failed to fetch user info: {}", e))?;
 
-    let email = quota_res.email.clone().unwrap_or("unknown@example.com".to_string());
+    let email = quota_res
+        .email
+        .clone()
+        .unwrap_or("unknown@example.com".to_string());
     let name = extract_username_from_email(&email);
 
     Ok(KiroAccountData {
@@ -127,9 +130,9 @@ pub async fn kiro_check_quota(access_token: String) -> Result<core_kiro::KiroQuo
 /// 刷新 Token
 #[command]
 pub async fn kiro_refresh_token(
-    refresh_token: String, 
-    client_id: String, 
-    client_secret: String
+    refresh_token: String,
+    client_id: String,
+    client_secret: String,
 ) -> Result<core_kiro::KiroTokenData, String> {
     core_kiro::refresh_token(&refresh_token, &client_id, &client_secret).await
 }
@@ -144,10 +147,14 @@ pub fn kiro_cancel_auth() -> Result<(), String> {
 #[command]
 pub async fn kiro_import_sso_token(token: String) -> Result<KiroAccount, String> {
     // 验证 Token (通过获取配额)
-    let quota_res = core_kiro::get_usage_limits(&token).await
+    let quota_res = core_kiro::get_usage_limits(&token)
+        .await
         .map_err(|e| format!("Invalid SSO Token: {}", e))?;
 
-    let email = quota_res.email.clone().unwrap_or("imported@example.com".to_string());
+    let email = quota_res
+        .email
+        .clone()
+        .unwrap_or("imported@example.com".to_string());
     let name = extract_username_from_email(&email);
 
     Ok(KiroAccount {
@@ -165,31 +172,43 @@ pub async fn kiro_import_sso_token(token: String) -> Result<KiroAccount, String>
 
 /// 验证 OIDC 凭证并导入
 #[command]
-pub async fn kiro_verify_credentials(credentials: serde_json::Value) -> Result<KiroAccount, String> {
+pub async fn kiro_verify_credentials(
+    credentials: serde_json::Value,
+) -> Result<KiroAccount, String> {
     use crate::utils::logger::log_info;
-    
-    log_info(&format!("[OIDC Import] Received credentials: {}", serde_json::to_string(&credentials).unwrap_or_default()));
-    
+
+    log_info(&format!(
+        "[OIDC Import] Received credentials: {}",
+        serde_json::to_string(&credentials).unwrap_or_default()
+    ));
+
     // 支持 camelCase 和 snake_case 两种格式
-    let client_id = credentials.get("clientId")
+    let client_id = credentials
+        .get("clientId")
         .or(credentials.get("client_id"))
         .and_then(|v| v.as_str())
         .ok_or("缺少 clientId 字段")?;
-    
-    let client_secret = credentials.get("clientSecret")
+
+    let client_secret = credentials
+        .get("clientSecret")
         .or(credentials.get("client_secret"))
         .and_then(|v| v.as_str())
         .ok_or("缺少 clientSecret 字段")?;
-    
-    let refresh_token = credentials.get("refreshToken")
+
+    let refresh_token = credentials
+        .get("refreshToken")
         .or(credentials.get("refresh_token"))
         .and_then(|v| v.as_str())
         .ok_or("缺少 refreshToken 字段")?;
 
-    log_info(&format!("[OIDC Import] Attempting to refresh token with clientId: {}...", &client_id[..20.min(client_id.len())]));
+    log_info(&format!(
+        "[OIDC Import] Attempting to refresh token with clientId: {}...",
+        &client_id[..20.min(client_id.len())]
+    ));
 
     // 尝试刷新以获取 Access Token
-    let token_res = core_kiro::refresh_token(refresh_token, client_id, client_secret).await
+    let token_res = core_kiro::refresh_token(refresh_token, client_id, client_secret)
+        .await
         .map_err(|e| {
             log_info(&format!("[OIDC Import] Token refresh failed: {}", e));
             format!("Token 刷新失败: {}. 请检查凭证是否正确或已过期", e)
@@ -204,7 +223,10 @@ pub async fn kiro_verify_credentials(credentials: serde_json::Value) -> Result<K
             quota
         }
         Err(e) => {
-            log_info(&format!("[OIDC Import] Failed to fetch user info (using defaults): {}", e));
+            log_info(&format!(
+                "[OIDC Import] Failed to fetch user info (using defaults): {}",
+                e
+            ));
             // 返回默认配额信息
             core_kiro::KiroQuotaData {
                 subscription_type: Some("Free".to_string()),
@@ -219,10 +241,16 @@ pub async fn kiro_verify_credentials(credentials: serde_json::Value) -> Result<K
         }
     };
 
-    let email = quota_res.email.clone().unwrap_or("unknown@example.com".to_string());
+    let email = quota_res
+        .email
+        .clone()
+        .unwrap_or("unknown@example.com".to_string());
     let name = extract_username_from_email(&email);
 
-    log_info(&format!("[OIDC Import] Import successful for email: {}", email));
+    log_info(&format!(
+        "[OIDC Import] Import successful for email: {}",
+        email
+    ));
 
     Ok(KiroAccount {
         id: generate_account_id(),
@@ -241,11 +269,14 @@ pub async fn kiro_verify_credentials(credentials: serde_json::Value) -> Result<K
 #[command]
 pub async fn kiro_social_login(app: AppHandle, provider: String) -> Result<KiroAccount, String> {
     let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(1);
-    
+
     // 注册 Sender
     if let Some(state) = app.try_state::<core_kiro::DeepLinkState>() {
         // Explicitly annotate closure argument type to satisfy E0282
-        let mut sender_guard = state.sender.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let mut sender_guard = state
+            .sender
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
         *sender_guard = Some(tx);
     } else {
         return Err("DeepLinkState not initialized".to_string());
@@ -261,7 +292,8 @@ pub async fn kiro_social_login(app: AppHandle, provider: String) -> Result<KiroA
     );
 
     // 打开浏览器
-    app.opener().open_url(&url, None::<&str>)
+    app.opener()
+        .open_url(&url, None::<&str>)
         .map_err(|e| format!("Failed to open browser: {}", e))?;
 
     // 等待回调
@@ -275,7 +307,9 @@ pub async fn kiro_social_login(app: AppHandle, provider: String) -> Result<KiroA
     // kiro://oauth/callback?token=...
     let url_parsed = url::Url::parse(&url).map_err(|e| format!("Invalid callback URL: {}", e))?;
     let pairs = url_parsed.query_pairs();
-    let token = pairs.into_iter().find(|(k, _)| k == "token")
+    let token = pairs
+        .into_iter()
+        .find(|(k, _)| k == "token")
         .map(|(_, v)| v.to_string())
         .ok_or("No token in callback")?;
 
@@ -293,36 +327,42 @@ pub async fn switch_kiro_account(
     region: Option<String>,
     start_url: Option<String>,
     auth_method: Option<String>,
-    provider: Option<String>
+    provider: Option<String>,
 ) -> Result<(), String> {
     use crate::utils::logger::log_info;
-    use sha1::{Sha1, Digest};
-    
+    use sha1::{Digest, Sha1};
+
     log_info("[Switch Account] Starting account switch...");
-    
+
     let region = region.unwrap_or_else(|| "us-east-1".to_string());
     let auth_method = auth_method.unwrap_or_else(|| "IdC".to_string());
     let provider = provider.unwrap_or_else(|| "BuilderId".to_string());
-    let effective_start_url = start_url.unwrap_or_else(|| "https://view.awsapps.com/start".to_string());
-    
+    let effective_start_url =
+        start_url.unwrap_or_else(|| "https://view.awsapps.com/start".to_string());
+
     // 计算 clientIdHash (与 Kiro 客户端一致)
     let hash_input = format!(r#"{{"startUrl":"{}"}}"#, effective_start_url);
     let mut hasher = Sha1::new();
     hasher.update(hash_input.as_bytes());
     let client_id_hash = format!("{:x}", hasher.finalize());
-    
-    log_info(&format!("[Switch Account] Client ID hash: {}", client_id_hash));
-    
+
+    log_info(&format!(
+        "[Switch Account] Client ID hash: {}",
+        client_id_hash
+    ));
+
     // 获取 SSO 缓存目录
     let home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
     let sso_cache = home_dir.join(".aws").join("sso").join("cache");
-    
+
     // 确保目录存在
-    std::fs::create_dir_all(&sso_cache)
-        .map_err(|e| format!("创建 SSO 缓存目录失败: {}", e))?;
-    
-    log_info(&format!("[Switch Account] SSO cache directory: {}", sso_cache.display()));
-    
+    std::fs::create_dir_all(&sso_cache).map_err(|e| format!("创建 SSO 缓存目录失败: {}", e))?;
+
+    log_info(&format!(
+        "[Switch Account] SSO cache directory: {}",
+        sso_cache.display()
+    ));
+
     // 写入 token 文件
     let token_path = sso_cache.join("kiro-auth-token.json");
     let expires_at = chrono::Utc::now() + chrono::Duration::hours(1);
@@ -335,12 +375,18 @@ pub async fn switch_kiro_account(
         "provider": provider,
         "region": region
     });
-    
-    std::fs::write(&token_path, serde_json::to_string_pretty(&token_data).unwrap())
-        .map_err(|e| format!("写入 token 文件失败: {}", e))?;
-    
-    log_info(&format!("[Switch Account] Token saved to: {}", token_path.display()));
-    
+
+    std::fs::write(
+        &token_path,
+        serde_json::to_string_pretty(&token_data).unwrap(),
+    )
+    .map_err(|e| format!("写入 token 文件失败: {}", e))?;
+
+    log_info(&format!(
+        "[Switch Account] Token saved to: {}",
+        token_path.display()
+    ));
+
     // 只有 IdC 登录需要写入客户端注册文件
     if auth_method != "social" && !client_id.is_empty() && !client_secret.is_empty() {
         let client_reg_path = sso_cache.join(format!("{}.json", client_id_hash));
@@ -357,13 +403,19 @@ pub async fn switch_kiro_account(
                 "codewhisperer:taskassist"
             ]
         });
-        
-        std::fs::write(&client_reg_path, serde_json::to_string_pretty(&client_data).unwrap())
-            .map_err(|e| format!("写入客户端注册文件失败: {}", e))?;
-        
-        log_info(&format!("[Switch Account] Client registration saved to: {}", client_reg_path.display()));
+
+        std::fs::write(
+            &client_reg_path,
+            serde_json::to_string_pretty(&client_data).unwrap(),
+        )
+        .map_err(|e| format!("写入客户端注册文件失败: {}", e))?;
+
+        log_info(&format!(
+            "[Switch Account] Client registration saved to: {}",
+            client_reg_path.display()
+        ));
     }
-    
+
     log_info("[Switch Account] Account switch completed successfully");
     Ok(())
 }
@@ -371,25 +423,32 @@ pub async fn switch_kiro_account(
 /// 在隐私模式下打开浏览器
 #[command]
 pub async fn open_url_in_private_mode(app: AppHandle, url: String) -> Result<(), String> {
-    use crate::utils::logger::{log_info, log_error};
+    use crate::utils::logger::{log_error, log_info};
     use tauri_plugin_shell::ShellExt;
-    
+
     let platform = std::env::consts::OS;
-    log_info(&format!("[Browser] Opening in private mode on {}: {}", platform, url));
-    
+    log_info(&format!(
+        "[Browser] Opening in private mode on {}: {}",
+        platform, url
+    ));
+
     let shell = app.shell();
-    
+
     let result = match platform {
         "windows" => {
             // Windows: 先检测默认浏览器，然后尝试打开
             let default_browser = detect_windows_default_browser();
-            log_info(&format!("[Browser] Detected default browser: {}", default_browser));
-            
+            log_info(&format!(
+                "[Browser] Detected default browser: {}",
+                default_browser
+            ));
+
             // 根据检测到的浏览器优先尝试
-            let mut browsers = vec![
-                (default_browser.as_str(), get_browser_private_flag(&default_browser)),
-            ];
-            
+            let mut browsers = vec![(
+                default_browser.as_str(),
+                get_browser_private_flag(&default_browser),
+            )];
+
             // 添加其他常见浏览器作为备选
             for (browser, flag) in &[
                 ("chrome", "--incognito"),
@@ -402,33 +461,42 @@ pub async fn open_url_in_private_mode(app: AppHandle, url: String) -> Result<(),
                     browsers.push((browser, flag));
                 }
             }
-            
+
             let mut success = false;
             for (browser, flag) in browsers {
                 if browser == "unknown" {
                     continue;
                 }
-                
+
                 log_info(&format!("[Browser] Trying {} with flag {}", browser, flag));
-                
+
                 // 方法1: 直接使用浏览器可执行文件
-                match shell.command(browser)
-                    .args(&[flag, &url])
-                    .spawn() {
+                match shell.command(browser).args(&[flag, &url]).spawn() {
                     Ok(_) => {
-                        log_info(&format!("[Browser] Successfully launched {} directly", browser));
+                        log_info(&format!(
+                            "[Browser] Successfully launched {} directly",
+                            browser
+                        ));
                         success = true;
                         break;
                     }
                     Err(e) => {
-                        log_info(&format!("[Browser] Direct launch failed: {}, trying cmd", e));
-                        
+                        log_info(&format!(
+                            "[Browser] Direct launch failed: {}, trying cmd",
+                            e
+                        ));
+
                         // 方法2: 使用 cmd /c start
-                        match shell.command("cmd")
+                        match shell
+                            .command("cmd")
                             .args(&["/c", "start", "", browser, flag, &url])
-                            .spawn() {
+                            .spawn()
+                        {
                             Ok(_) => {
-                                log_info(&format!("[Browser] Successfully launched {} via cmd", browser));
+                                log_info(&format!(
+                                    "[Browser] Successfully launched {} via cmd",
+                                    browser
+                                ));
                                 success = true;
                                 break;
                             }
@@ -439,7 +507,7 @@ pub async fn open_url_in_private_mode(app: AppHandle, url: String) -> Result<(),
                     }
                 }
             }
-            
+
             if success {
                 Ok(())
             } else {
@@ -449,16 +517,19 @@ pub async fn open_url_in_private_mode(app: AppHandle, url: String) -> Result<(),
         "macos" => {
             // macOS: 尝试 Chrome -> Firefox
             log_info("[Browser] Trying Chrome");
-            match shell.command("open")
+            match shell
+                .command("open")
                 .args(&["-na", "Google Chrome", "--args", "--incognito", &url])
-                .spawn() {
+                .spawn()
+            {
                 Ok(_) => {
                     log_info("[Browser] Opened with Chrome");
                     Ok(())
                 }
                 Err(_) => {
                     log_info("[Browser] Chrome failed, trying Firefox");
-                    shell.command("open")
+                    shell
+                        .command("open")
                         .args(&["-a", "Firefox", "--args", "-private-window", &url])
                         .spawn()
                         .map(|_| {
@@ -475,14 +546,12 @@ pub async fn open_url_in_private_mode(app: AppHandle, url: String) -> Result<(),
                 ("chromium", vec!["--incognito", &url]),
                 ("firefox", vec!["-private-window", &url]),
             ];
-            
+
             let mut success = false;
             for (browser, args) in browsers {
                 log_info(&format!("[Browser] Trying {}", browser));
-                
-                match shell.command(browser)
-                    .args(&args)
-                    .spawn() {
+
+                match shell.command(browser).args(&args).spawn() {
                     Ok(_) => {
                         log_info(&format!("[Browser] Successfully launched {}", browser));
                         success = true;
@@ -493,24 +562,26 @@ pub async fn open_url_in_private_mode(app: AppHandle, url: String) -> Result<(),
                     }
                 }
             }
-            
+
             if success {
                 Ok(())
             } else {
                 Err("All browsers failed".to_string())
             }
         }
-        _ => {
-            Err(format!("Unsupported platform: {}", platform))
-        }
+        _ => Err(format!("Unsupported platform: {}", platform)),
     };
-    
+
     // 如果所有尝试都失败，回退到默认浏览器
     match result {
         Ok(_) => Ok(()),
         Err(e) => {
-            log_error(&format!("[Browser] Private mode failed: {}, using default browser", e));
-            app.opener().open_url(&url, None::<&str>)
+            log_error(&format!(
+                "[Browser] Private mode failed: {}, using default browser",
+                e
+            ));
+            app.opener()
+                .open_url(&url, None::<&str>)
                 .map_err(|e| format!("Failed to open URL: {}", e))
         }
     }
@@ -521,7 +592,7 @@ fn detect_windows_default_browser() -> String {
     #[cfg(target_os = "windows")]
     {
         use std::process::Command;
-        
+
         // 尝试从注册表读取默认浏览器
         let output = Command::new("reg")
             .args(&[
@@ -531,10 +602,10 @@ fn detect_windows_default_browser() -> String {
                 "ProgId"
             ])
             .output();
-        
+
         if let Ok(output) = output {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            
+
             if stdout.contains("ChromeHTML") || stdout.contains("Google") {
                 return "chrome".to_string();
             }
@@ -552,7 +623,7 @@ fn detect_windows_default_browser() -> String {
             }
         }
     }
-    
+
     "unknown".to_string()
 }
 
@@ -572,39 +643,34 @@ fn get_browser_private_flag(browser: &str) -> &'static str {
 pub fn get_kiro_version() -> Option<String> {
     use crate::utils::logger::{log_debug, log_info};
     use std::process::Command;
-    
+
     log_debug("Checking Kiro version");
-    
+
     // 尝试直接执行命令获取版本
     #[cfg(target_os = "windows")]
     let output = {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
-        
+
         Command::new("cmd")
             .args(["/C", "kiro --version"])
             .creation_flags(CREATE_NO_WINDOW)
             .output()
     };
-    
+
     #[cfg(not(target_os = "windows"))]
-    let output = {
-        Command::new("sh")
-            .arg("-c")
-            .arg("kiro --version")
-            .output()
-    };
-    
+    let output = { Command::new("sh").arg("-c").arg("kiro --version").output() };
+
     match output {
         Ok(out) => {
             let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
             let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
-            
+
             log_info(&format!(
-                "Kiro command executed - status: {}, stdout: '{}', stderr: '{}'", 
+                "Kiro command executed - status: {}, stdout: '{}', stderr: '{}'",
                 out.status, stdout, stderr
             ));
-            
+
             if out.status.success() {
                 let raw = if stdout.is_empty() { &stderr } else { &stdout };
                 if !raw.is_empty() {
@@ -621,18 +687,18 @@ pub fn get_kiro_version() -> Option<String> {
             log_info(&format!("Failed to execute kiro command: {}", e));
         }
     }
-    
+
     None
 }
 
 /// 从版本输出中提取纯版本号
 fn extract_version(raw: &str) -> String {
-    use regex::Regex;
     use once_cell::sync::Lazy;
-    
+    use regex::Regex;
+
     static VERSION_RE: Lazy<Regex> =
         Lazy::new(|| Regex::new(r"\d+\.\d+\.\d+(-[\w.]+)?").expect("Invalid version regex"));
-    
+
     VERSION_RE
         .find(raw)
         .map(|m| m.as_str().to_string())

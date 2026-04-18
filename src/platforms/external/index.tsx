@@ -1,0 +1,123 @@
+import {
+  Bot,
+  BotMessageSquare,
+  Braces,
+  Crosshair,
+  Github,
+  Send,
+  Wind,
+  Workflow,
+} from 'lucide-react'
+import { createExternalPlatformConfig } from '@/platforms/shared/externalPlatform'
+
+export const externalPlatformConfigs = [
+  createExternalPlatformConfig({
+    id: 'github-copilot',
+    name: 'GitHub Copilot',
+    icon: Github,
+    color: '#24292F',
+    description: 'Manage GitHub Copilot accounts with JSON import and local VS Code session import.',
+    accountTypeLabel: 'Copilot',
+    importHint: 'Import GitHub Copilot JSON or read the current local VS Code GitHub auth session.',
+    importLocalCommand: 'github_copilot_import_from_local',
+    localImportLabel: 'Import local GitHub Copilot session',
+    localImportDescription: 'Read the current GitHub auth session from local VS Code state storage and save it into Nexus.',
+    placeholderJson: `{
+  "login": "github-username",
+  "email": "github-username",
+  "providerId": "Copilot",
+  "githubUserId": "123456",
+  "githubAccessToken": "ghu_xxx"
+}`,
+  }),
+  createExternalPlatformConfig({
+    id: 'windsurf',
+    name: 'Windsurf',
+    icon: Wind,
+    color: '#0EA5E9',
+    description: 'Manage Windsurf accounts with JSON import and local state import.',
+    accountTypeLabel: 'Windsurf',
+    importHint: 'Import Windsurf credentials from JSON or read the current local login state from this machine.',
+    importLocalCommand: 'windsurf_import_from_local',
+    localImportLabel: 'Import local Windsurf session',
+    localImportDescription: 'Read the current Windsurf auth state from the local state database and save it into Nexus.',
+    placeholderJson: `{
+  "email": "name@example.com",
+  "providerId": "pro",
+  "user": {
+    "name": "Windsurf User"
+  },
+  "subscriptionType": "pro"
+}`,
+  }),
+  createExternalPlatformConfig({
+    id: 'cursor',
+    name: 'Cursor',
+    icon: Crosshair,
+    color: '#2563EB',
+    description: 'Manage Cursor accounts with JSON import, local state import, and one-click switching.',
+    accountTypeLabel: 'Cursor',
+    importHint: 'Import Cursor JSON manually or read the current local login state from this machine.',
+    importLocalCommand: 'cursor_import_from_local',
+    switchCommand: 'switch_cursor_account',
+    localImportLabel: 'Import local Cursor session',
+    localImportDescription: 'Read the current Cursor login state from the local state database and save it into Nexus.',
+    placeholderJson: `{
+  "accessToken": "cursor-access-token",
+  "refreshToken": "cursor-refresh-token",
+  "email": "name@example.com",
+  "authId": "user_123",
+  "stripeMembershipType": "pro",
+  "stripeSubscriptionStatus": "active",
+  "cachedSignUpType": "email"
+}`,
+  }),
+  createExternalPlatformConfig({
+    id: 'codebuddy',
+    name: 'CodeBuddy',
+    icon: Bot,
+    color: '#F97316',
+    description: 'Manage imported CodeBuddy accounts and raw channel configs.',
+    accountTypeLabel: 'CodeBuddy',
+  }),
+  createExternalPlatformConfig({
+    id: 'codebuddy_cn',
+    name: 'CodeBuddy CN',
+    icon: BotMessageSquare,
+    color: '#DC2626',
+    description: 'Manage imported CodeBuddy CN accounts and raw channel configs.',
+    accountTypeLabel: 'CodeBuddy CN',
+  }),
+  createExternalPlatformConfig({
+    id: 'qoder',
+    name: 'Qoder',
+    icon: Braces,
+    color: '#7C3AED',
+    description: 'Manage imported Qoder accounts and raw channel configs.',
+    accountTypeLabel: 'Qoder',
+  }),
+  createExternalPlatformConfig({
+    id: 'trae',
+    name: 'Trae',
+    icon: Send,
+    color: '#14B8A6',
+    description: 'Manage imported Trae accounts and raw channel configs.',
+    accountTypeLabel: 'Trae',
+  }),
+  createExternalPlatformConfig({
+    id: 'zed',
+    name: 'Zed',
+    icon: Workflow,
+    color: '#111827',
+    description: 'Manage imported Zed accounts and raw channel configs.',
+    accountTypeLabel: 'Zed',
+  }),
+  createExternalPlatformConfig({
+    id: 'workbuddy',
+    name: 'WorkBuddy',
+    icon: Bot,
+    color: '#0891B2',
+    description: 'Manage imported WorkBuddy accounts and raw channel configs.',
+    accountTypeLabel: 'WorkBuddy',
+  }),
+]

@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils'
 import { toast } from '@/lib/toast'
 import { useTranslation } from 'react-i18next'
 import { usePlatformStore } from '@/stores/usePlatformStore'
-import { KiroAccountService } from '../services/KiroAccountService'
 import type { KiroAccount } from '@/types/account'
 import { Gem, Diamond, Circle, Loader2, Ban } from 'lucide-react'
 
@@ -38,9 +37,12 @@ export const KiroAccountCard = memo(function KiroAccountCard({
 }: KiroAccountCardProps) {
   const { t } = useTranslation()
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isSwitching, setIsSwitching] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const deleteAccount = usePlatformStore(state => state.deleteAccount)
+  const refreshKiroToken = usePlatformStore(state => state.refreshKiroToken)
+  const switchKiroAccount = usePlatformStore(state => state.switchKiroAccount)
 
   const subscriptionType = account.subscription?.type || 'Free'
   const usagePercent = (account.usage?.percentUsed || 0) * 100
@@ -50,11 +52,11 @@ export const KiroAccountCard = memo(function KiroAccountCard({
   const handleRefresh = async () => {
     setIsRefreshing(true)
     try {
-      const result = await KiroAccountService.refreshToken(account)
-      if (result.success) {
+      const success = await refreshKiroToken(account.id)
+      if (success) {
         toast.success(t('accounts.refreshSuccess'), account.email)
       } else {
-        toast.error(t('accounts.refreshFailed'), result.error || t('common.unknownError'))
+        toast.error(t('accounts.refreshFailed'), t('common.unknownError'))
       }
     } catch (e: any) {
       logError('Failed to refresh:', e)
@@ -65,12 +67,15 @@ export const KiroAccountCard = memo(function KiroAccountCard({
   }
 
   const handleSwitch = async () => {
+    setIsSwitching(true)
     try {
-      await KiroAccountService.switchAccount(account.id)
+      await switchKiroAccount(account.id)
       toast.success(t('accounts.switchSuccess'), account.email)
     } catch (e: any) {
       logError('Failed to switch account:', e)
       toast.error(t('accounts.switchFailed'), e.message || t('common.unknownError'))
+    } finally {
+      setIsSwitching(false)
     }
   }
 
@@ -150,6 +155,7 @@ export const KiroAccountCard = memo(function KiroAccountCard({
         onDetails={() => setDetailsOpen(true)}
         onDelete={() => setDeleteConfirmOpen(true)}
         isRefreshing={isRefreshing}
+        isSwitching={isSwitching}
       />
 
       <KiroAccountDetailsDialog

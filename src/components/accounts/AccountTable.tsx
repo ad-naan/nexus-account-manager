@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
 import { usePlatformStore } from '@/stores/usePlatformStore'
 import type { Account, AntigravityAccount, KiroAccount } from '@/types/account'
+import { getPlatform } from '@/platforms/registry'
 import {
     Power,
     Copy,
@@ -180,15 +181,22 @@ export function AccountTable({
         const antigravity = isAntigravity ? account as AntigravityAccount : null
         const kiro = isKiro ? account as KiroAccount : null
 
+        const genericProviderId =
+          'providerId' in account && typeof account.providerId === 'string'
+            ? account.providerId
+            : undefined
+
         const subscriptionTier = antigravity?.quota?.subscription_tier || 
                                  kiro?.subscription?.type || 
-                                 (isClaude || isCodex || isGemini ? 'API' : 'Free')
+                                 genericProviderId ||
+                                 (isClaude || isCodex || isGemini ? 'API' : 'Imported')
 
-        const platformName = isAntigravity ? 'Antigravity' : 
-                           isKiro ? (kiro?.idp || 'Kiro') : 
-                           isClaude ? 'Claude' : 
-                           isCodex ? 'Codex' : 
-                           'Gemini'
+        const registeredPlatform = getPlatform(account.platform)
+        const platformName = isAntigravity
+          ? 'Antigravity'
+          : isKiro
+            ? (kiro?.idp || 'Kiro')
+            : registeredPlatform?.name || account.platform
 
         return { subscriptionTier, platformName }
     }
@@ -337,16 +345,18 @@ export function AccountTable({
                                     </td>
                                     <td className="py-3 px-4">
                                         <div className="flex items-center justify-end gap-1">
-                                            <Button
-                                                size="icon"
-                                                variant="ghost"
-                                                className="h-7 w-7 hover:bg-white/10 hover:text-primary"
-                                                onClick={() => onSwitch?.(account)}
-                                                title={t('common.switch', { defaultValue: 'Switch' })}
-                                                disabled={account.isActive || isSwitching}
-                                            >
-                                                <Power className="h-3.5 w-3.5" />
-                                            </Button>
+                                            {onSwitch && (
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className="h-7 w-7 hover:bg-white/10 hover:text-primary"
+                                                    onClick={() => onSwitch(account)}
+                                                    title={t('common.switch', { defaultValue: 'Switch' })}
+                                                    disabled={account.isActive || isSwitching}
+                                                >
+                                                    <Power className="h-3.5 w-3.5" />
+                                                </Button>
+                                            )}
                                             <Button
                                                 size="icon"
                                                 variant="ghost"
@@ -356,15 +366,17 @@ export function AccountTable({
                                             >
                                                 <Download className="h-3.5 w-3.5" />
                                             </Button>
-                                            <Button
-                                                size="icon"
-                                                variant="ghost"
-                                                className="h-7 w-7 hover:bg-white/10 hover:text-blue-400"
-                                                onClick={() => onEdit?.(account)}
-                                                title={t('common.edit', { defaultValue: 'Edit' })}
-                                            >
-                                                <Edit className="h-3.5 w-3.5" />
-                                            </Button>
+                                            {onEdit && (
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className="h-7 w-7 hover:bg-white/10 hover:text-blue-400"
+                                                    onClick={() => onEdit(account)}
+                                                    title={t('common.edit', { defaultValue: 'Edit' })}
+                                                >
+                                                    <Edit className="h-3.5 w-3.5" />
+                                                </Button>
+                                            )}
                                             <Button
                                                 size="icon"
                                                 variant="ghost"

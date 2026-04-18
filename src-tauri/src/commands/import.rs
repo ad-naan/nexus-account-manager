@@ -1,6 +1,6 @@
-use tauri::command;
 use rusqlite::Connection;
 use std::path::Path;
+use tauri::command;
 
 #[derive(serde::Serialize)]
 pub struct ImportedToken {
@@ -16,13 +16,17 @@ pub fn import_from_db(path: String) -> Result<Vec<ImportedToken>, String> {
     }
 
     let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT key, value FROM ItemTable WHERE key LIKE '%token%' OR key LIKE '%auth%'").map_err(|e| e.to_string())?;
-    
-    let token_iter = stmt.query_map([], |row| {
-        let key: String = row.get(0)?;
-        let value: String = row.get(1)?;
-        Ok((key, value))
-    }).map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT key, value FROM ItemTable WHERE key LIKE '%token%' OR key LIKE '%auth%'")
+        .map_err(|e| e.to_string())?;
+
+    let token_iter = stmt
+        .query_map([], |row| {
+            let key: String = row.get(0)?;
+            let value: String = row.get(1)?;
+            Ok((key, value))
+        })
+        .map_err(|e| e.to_string())?;
 
     let mut tokens = Vec::new();
     for token in token_iter {

@@ -1,11 +1,11 @@
+use crate::core::oauth;
+use crate::utils::logger::{log_error, log_info, log_warn};
+use std::sync::{Mutex, OnceLock};
+use tauri::Url;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
 use tokio::sync::watch;
-use std::sync::{Mutex, OnceLock};
-use tauri::Url;
-use crate::core::oauth;
-use crate::utils::logger::{log_info, log_error, log_warn};
 
 struct OAuthFlowState {
     auth_url: String,
@@ -44,7 +44,9 @@ fn oauth_fail_html() -> &'static str {
     </html>"
 }
 
-pub async fn ensure_oauth_flow_prepared(app_handle: Option<tauri::AppHandle>) -> Result<String, String> {
+pub async fn ensure_oauth_flow_prepared(
+    app_handle: Option<tauri::AppHandle>,
+) -> Result<String, String> {
     // Return URL if flow already exists and is still "fresh" (receiver hasn't been taken)
     if let Ok(mut state) = get_oauth_flow_state().lock() {
         if let Some(s) = state.as_mut() {
@@ -61,7 +63,7 @@ pub async fn ensure_oauth_flow_prepared(app_handle: Option<tauri::AppHandle>) ->
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .map_err(|e| format!("failed_to_bind_local_port: {}", e))?;
-    
+
     let port = listener
         .local_addr()
         .map_err(|e| format!("failed_to_get_local_port: {}", e))?
@@ -85,23 +87,28 @@ pub async fn ensure_oauth_flow_prepared(app_handle: Option<tauri::AppHandle>) ->
             let mut buffer = [0u8; 4096];
             let bytes_read = stream.read(&mut buffer).await.unwrap_or(0);
             let request = String::from_utf8_lossy(&buffer[..bytes_read]);
-            
+
             let query_params = request
                 .lines()
                 .next()
                 .and_then(|line| {
                     let parts: Vec<&str> = line.split_whitespace().collect();
-                    if parts.len() >= 2 { Some(parts[1]) } else { None }
+                    if parts.len() >= 2 {
+                        Some(parts[1])
+                    } else {
+                        None
+                    }
                 })
-                .and_then(|path| {
-                    Url::parse(&format!("http://localhost{}", path)).ok()
-                })
+                .and_then(|path| Url::parse(&format!("http://localhost{}", path)).ok())
                 .map(|url| {
                     let mut code = None;
                     let mut state = None;
                     for (k, v) in url.query_pairs() {
-                        if k == "code" { code = Some(v.to_string()); }
-                        else if k == "state" { state = Some(v.to_string()); }
+                        if k == "code" {
+                            code = Some(v.to_string());
+                        } else if k == "state" {
+                            state = Some(v.to_string());
+                        }
                     }
                     (code, state)
                 });
@@ -115,22 +122,29 @@ pub async fn ensure_oauth_flow_prepared(app_handle: Option<tauri::AppHandle>) ->
                 if let Ok(lock) = get_oauth_flow_state().lock() {
                     if let Some(s) = lock.as_ref() {
                         received_state.as_ref() == Some(&s.state)
-                    } else { false }
-                } else { false }
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
             };
 
             let (result, response_html) = match (code, state_valid) {
                 (Some(code), true) => {
                     log_info("OAuth code captured successfully");
                     (Ok(code), oauth_success_html())
-                },
+                }
                 (Some(_), false) => {
                     log_error("OAuth callback state mismatch");
                     (Err("OAuth state mismatch".to_string()), oauth_fail_html())
-                },
-                (None, _) => (Err("Failed to get Authorization Code".to_string()), oauth_fail_html()),
+                }
+                (None, _) => (
+                    Err("Failed to get Authorization Code".to_string()),
+                    oauth_fail_html(),
+                ),
             };
-            
+
             let _ = stream.write_all(response_html.as_bytes()).await;
             let _ = stream.flush().await;
 
@@ -144,7 +158,7 @@ pub async fn ensure_oauth_flow_prepared(app_handle: Option<tauri::AppHandle>) ->
             } else {
                 log_warn("No app handle available for event emission");
             }
-            
+
             let _ = tx.send(result).await;
         }
     });
@@ -183,23 +197,41 @@ pub async fn submit_oauth_code(code_input: String) -> Result<(), String> {
 
     let code = if code_input.starts_with("http") {
         if let Ok(url) = Url::parse(&code_input) {
-            url.query_pairs().find(|(k, _)| k == "code").map(|(_, v)| v.to_string()).unwrap_or(code_input)
-        } else { code_input }
-    } else { code_input };
+            url.query_pairs()
+                .find(|(k, _)| k == "code")
+                .map(|(_, v)| v.to_string())
+                .unwrap_or(code_input)
+        } else {
+            code_input
+        }
+    } else {
+        code_input
+    };
 
-    tx.send(Ok(code)).await.map_err(|_| "Failed to send code".to_string())?;
+    tx.send(Ok(code))
+        .await
+        .map_err(|_| "Failed to send code".to_string())?;
     Ok(())
 }
 
 /// Complete OAuth flow without opening browser
 // start_oauth_flow removed as it is superseded by manual flow control
-pub async fn complete_oauth_flow(app_handle: Option<tauri::AppHandle>) -> Result<oauth::TokenResponse, String> {
+pub async fn complete_oauth_flow(
+    app_handle: Option<tauri::AppHandle>,
+) -> Result<oauth::TokenResponse, String> {
     let _ = ensure_oauth_flow_prepared(app_handle).await?;
 
     let (mut code_rx, redirect_uri) = {
-        let mut lock = get_oauth_flow_state().lock().map_err(|_| "Lock corrupted".to_string())?;
-        let Some(state) = lock.as_mut() else { return Err("No state".to_string()); };
-        let rx = state.code_rx.take().ok_or("Authorization already in progress")?;
+        let mut lock = get_oauth_flow_state()
+            .lock()
+            .map_err(|_| "Lock corrupted".to_string())?;
+        let Some(state) = lock.as_mut() else {
+            return Err("No state".to_string());
+        };
+        let rx = state
+            .code_rx
+            .take()
+            .ok_or("Authorization already in progress")?;
         (rx, state.redirect_uri.clone())
     };
 
@@ -209,7 +241,9 @@ pub async fn complete_oauth_flow(app_handle: Option<tauri::AppHandle>) -> Result
         None => return Err("Closed".to_string()),
     };
 
-    if let Ok(mut lock) = get_oauth_flow_state().lock() { *lock = None; }
+    if let Ok(mut lock) = get_oauth_flow_state().lock() {
+        *lock = None;
+    }
 
     oauth::exchange_code(&code, &redirect_uri).await
 }
