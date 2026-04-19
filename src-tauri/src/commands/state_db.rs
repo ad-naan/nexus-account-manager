@@ -9,6 +9,7 @@ pub struct StateDbApp {
     pub dir_name: &'static str,
     pub env_var: &'static str,
     pub cli_command: &'static str,
+    pub config_key: &'static str,
 }
 
 pub const CURSOR_APP: StateDbApp = StateDbApp {
@@ -16,6 +17,7 @@ pub const CURSOR_APP: StateDbApp = StateDbApp {
     dir_name: "Cursor",
     env_var: "CURSOR_STATE_DB_PATH",
     cli_command: "cursor",
+    config_key: "cursor_state_db_path",
 };
 
 pub const WINDSURF_APP: StateDbApp = StateDbApp {
@@ -23,9 +25,10 @@ pub const WINDSURF_APP: StateDbApp = StateDbApp {
     dir_name: "Windsurf",
     env_var: "WINDSURF_STATE_DB_PATH",
     cli_command: "windsurf",
+    config_key: "windsurf_state_db_path",
 };
 
-pub fn resolve_state_db_path(app: StateDbApp) -> Result<PathBuf, String> {
+pub fn resolve_default_state_db_path(app: StateDbApp) -> Result<PathBuf, String> {
     if let Ok(env_path) = env::var(app.env_var) {
         return Ok(PathBuf::from(env_path));
     }
@@ -74,6 +77,14 @@ pub fn resolve_state_db_path(app: StateDbApp) -> Result<PathBuf, String> {
             .join("globalStorage")
             .join("state.vscdb"))
     }
+}
+
+pub fn resolve_state_db_path(app: StateDbApp) -> Result<PathBuf, String> {
+    if let Some(config_path) = crate::utils::config::get_config_string(app.config_key)? {
+        return Ok(PathBuf::from(config_path));
+    }
+
+    resolve_default_state_db_path(app)
 }
 
 pub fn open_state_db(app: StateDbApp) -> Result<(Connection, PathBuf), String> {

@@ -2,6 +2,7 @@ use crate::core::{Account, Storage};
 use std::sync::Mutex;
 use tauri::{AppHandle, State};
 pub mod antigravity;
+pub mod buddy;
 pub mod claude;
 pub mod codex;
 pub mod cursor;
@@ -11,9 +12,12 @@ pub mod import;
 pub mod kiro;
 pub mod machine;
 pub mod provider;
+pub mod qoder;
 pub mod state_db;
+pub mod trae;
 pub mod updater;
 pub mod windsurf;
+pub mod zed;
 
 pub struct AppState {
     pub storage: Mutex<Storage>,

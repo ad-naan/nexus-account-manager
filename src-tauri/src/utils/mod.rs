@@ -2,6 +2,7 @@ pub mod common;
 pub mod config;
 pub mod db_inject;
 pub mod http;
+pub mod local_secret_storage;
 pub mod logger;
 /// 通用工具模块
 ///

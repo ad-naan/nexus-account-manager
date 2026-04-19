@@ -157,11 +157,29 @@ pub fn save_app_config(config: &AppConfig) -> Result<(), String> {
     save_full_config(&full_config)
 }
 
+pub fn get_config_string(key: &str) -> Result<Option<String>, String> {
+    let full_config = load_full_config()?;
+    Ok(full_config
+        .get(key)
+        .and_then(|value| value.as_str())
+        .map(|value| value.to_string()))
+}
+
+pub fn set_config_string(key: &str, value: Option<String>) -> Result<(), String> {
+    let mut full_config = load_full_config()?;
+
+    if let Some(current) = value.filter(|current| !current.trim().is_empty()) {
+        full_config[key] = serde_json::json!(current);
+    } else if let Some(object) = full_config.as_object_mut() {
+        object.remove(key);
+    }
+
+    save_full_config(&full_config)
+}
+
 /// 更新 Antigravity 可执行文件路径
 pub fn update_antigravity_path(path: String) -> Result<(), String> {
-    let mut config = load_app_config()?;
-    config.antigravity_executable = Some(path);
-    save_app_config(&config)
+    set_config_string("antigravity_executable", Some(path))
 }
 
 /// 更新 Antigravity 启动参数

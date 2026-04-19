@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -10,6 +11,7 @@ import type { Account, AntigravityAccount, KiroAccount } from '@/types/account'
 import { getPlatform } from '@/platforms/registry'
 import {
     Power,
+    RefreshCw,
     Copy,
     Check,
     Edit,
@@ -46,16 +48,29 @@ const getSubscriptionIcon = (tier?: string) => {
 interface AccountTableProps {
     accounts: Account[]
     onSwitch?: (account: Account) => void
+    onRefresh?: (account: Account) => void
     onEdit?: (account: Account) => void
     onDelete?: (account: Account) => void
+    getCustomActions?: (account: Account) => AccountTableAction[]
     isSwitching?: boolean
+}
+
+export interface AccountTableAction {
+    icon: LucideIcon
+    label: string
+    onClick: () => void | Promise<void>
+    disabled?: boolean
+    loading?: boolean
+    className?: string
 }
 
 export function AccountTable({
     accounts,
     onSwitch,
+    onRefresh,
     onEdit,
     onDelete,
+    getCustomActions,
     isSwitching = false
 }: AccountTableProps) {
     const { t } = useTranslation()
@@ -204,7 +219,7 @@ export function AccountTable({
     return (
         <Card className="bg-card/30 border-border/60 overflow-hidden">
             <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-[980px]">
                     <thead>
                         <tr className="border-b border-border/60 bg-muted/30">
                             <th className="text-center py-3 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider w-16">
@@ -260,6 +275,7 @@ export function AccountTable({
                     <tbody className="divide-y divide-border/40">
                         {sortedAccounts.map((account, index) => {
                             const { subscriptionTier, platformName } = getAccountInfo(account)
+                            const customActions = getCustomActions?.(account) || []
                             
                             return (
                                 <tr
@@ -344,7 +360,7 @@ export function AccountTable({
                                         )}
                                     </td>
                                     <td className="py-3 px-4">
-                                        <div className="flex items-center justify-end gap-1">
+                                        <div className="flex flex-wrap items-center justify-end gap-1">
                                             {onSwitch && (
                                                 <Button
                                                     size="icon"
@@ -357,6 +373,17 @@ export function AccountTable({
                                                     <Power className="h-3.5 w-3.5" />
                                                 </Button>
                                             )}
+                                            {onRefresh && (
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className="h-7 w-7 hover:bg-white/10 hover:text-sky-400"
+                                                    onClick={() => onRefresh(account)}
+                                                    title={t('common.refresh', { defaultValue: 'Refresh' })}
+                                                >
+                                                    <RefreshCw className="h-3.5 w-3.5" />
+                                                </Button>
+                                            )}
                                             <Button
                                                 size="icon"
                                                 variant="ghost"
@@ -366,6 +393,22 @@ export function AccountTable({
                                             >
                                                 <Download className="h-3.5 w-3.5" />
                                             </Button>
+                                            {customActions.map((action) => (
+                                                <Button
+                                                    key={`${account.id}-${action.label}`}
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className={cn(
+                                                        'h-7 w-7 hover:bg-white/10',
+                                                        action.className
+                                                    )}
+                                                    onClick={action.onClick}
+                                                    title={action.label}
+                                                    disabled={action.disabled || action.loading}
+                                                >
+                                                    <action.icon className={cn('h-3.5 w-3.5', action.loading && 'animate-spin')} />
+                                                </Button>
+                                            ))}
                                             {onEdit && (
                                                 <Button
                                                     size="icon"

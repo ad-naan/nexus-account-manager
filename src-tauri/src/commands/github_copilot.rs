@@ -46,6 +46,8 @@ struct VsCodeInstallation {
     state_db_path: PathBuf,
 }
 
+pub const GITHUB_COPILOT_STATE_DB_CONFIG_KEY: &str = "github_copilot_state_db_path";
+
 fn get_env_path(keys: &[&str]) -> Option<PathBuf> {
     keys.iter()
         .find_map(|key| std::env::var(key).ok())
@@ -105,25 +107,29 @@ fn local_state_path_from_root(user_data_root: &Path) -> PathBuf {
     user_data_root.join("Local State")
 }
 
-fn resolve_vscode_installation() -> Result<VsCodeInstallation, String> {
-    if let Some(db_path) = get_env_path(&["GITHUB_COPILOT_STATE_DB_PATH", "VSCODE_STATE_DB_PATH"]) {
-        let user_data_root = db_path
-            .parent()
-            .and_then(|path| path.parent())
-            .and_then(|path| path.parent())
-            .map(Path::to_path_buf)
-            .ok_or_else(|| {
-                format!(
-                    "Cannot determine VS Code user data root from {}",
-                    db_path.display()
-                )
-            })?;
+fn installation_from_state_db_path(db_path: PathBuf) -> Result<VsCodeInstallation, String> {
+    let user_data_root = db_path
+        .parent()
+        .and_then(|path| path.parent())
+        .and_then(|path| path.parent())
+        .map(Path::to_path_buf)
+        .ok_or_else(|| {
+            format!(
+                "Cannot determine VS Code user data root from {}",
+                db_path.display()
+            )
+        })?;
 
-        return Ok(VsCodeInstallation {
-            candidate: &VSCODE_CANDIDATES[0],
-            user_data_root,
-            state_db_path: db_path,
-        });
+    Ok(VsCodeInstallation {
+        candidate: &VSCODE_CANDIDATES[0],
+        user_data_root,
+        state_db_path: db_path,
+    })
+}
+
+fn detect_vscode_installation() -> Result<VsCodeInstallation, String> {
+    if let Some(db_path) = get_env_path(&["GITHUB_COPILOT_STATE_DB_PATH", "VSCODE_STATE_DB_PATH"]) {
+        return installation_from_state_db_path(db_path);
     }
 
     for (candidate, user_data_root) in get_user_data_root_candidates() {
@@ -140,8 +146,18 @@ fn resolve_vscode_installation() -> Result<VsCodeInstallation, String> {
     Err("VS Code state database not found".to_string())
 }
 
-pub fn has_local_state() -> bool {
-    resolve_vscode_installation().is_ok()
+fn resolve_vscode_installation() -> Result<VsCodeInstallation, String> {
+    if let Some(configured_path) =
+        crate::utils::config::get_config_string(GITHUB_COPILOT_STATE_DB_CONFIG_KEY)?
+    {
+        return installation_from_state_db_path(PathBuf::from(configured_path));
+    }
+
+    detect_vscode_installation()
+}
+
+pub fn detect_vscode_state_db_path() -> Result<PathBuf, String> {
+    Ok(detect_vscode_installation()?.state_db_path)
 }
 
 fn read_string_item(connection: &Connection, key: &str) -> Result<Option<String>, String> {

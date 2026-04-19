@@ -361,11 +361,9 @@ pub fn get_antigravity_version() -> Option<String> {
 
     log_debug("Checking Antigravity version");
 
-    // 检查是否配置了 Antigravity 可执行文件
-    let exe_path = match crate::utils::config::load_app_config() {
-        Ok(config) => config.antigravity_executable?,
-        Err(_) => return None,
-    };
+    let exe_path = crate::utils::process::get_antigravity_executable_path()?
+        .to_string_lossy()
+        .to_string();
 
     // 尝试执行 antigravity --version
     #[cfg(target_os = "windows")]
